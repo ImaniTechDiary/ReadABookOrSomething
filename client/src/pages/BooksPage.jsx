@@ -121,13 +121,32 @@ export default function BooksPage() {
       <ul className="book-list">
         {results.map((book) => (
           <li key={book.id} className="book-item">
-            <p>
-              <strong>{book.title}</strong>
-            </p>
-            <p>{book.authors?.length ? book.authors.join(", ") : "Unknown author"}</p>
-            <p>
-              source: {book.source} | score: {book.score}
-            </p>
+            <div className="book-cover-wrap">
+              {book.coverUrl ? (
+                <img
+                  src={book.coverUrl}
+                  alt={`${book.title} cover`}
+                  className="book-cover"
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="book-cover book-cover-fallback">
+                  <span>{book.title}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="book-meta">
+              <p>
+                <strong>{book.title}</strong>
+              </p>
+              <p>{book.authors?.length ? book.authors.join(", ") : "Unknown author"}</p>
+              <p>
+                source: {book.source} | score: {book.score}
+              </p>
+            </div>
+
             <p className="links">
               {book.formats?.epub ? (
                 <a href={book.formats.epub} target="_blank" rel="noreferrer">

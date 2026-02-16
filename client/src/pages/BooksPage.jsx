@@ -131,7 +131,7 @@ export default function BooksPage() {
             <p className="links">
               {book.formats?.epub ? (
                 <a href={book.formats.epub} target="_blank" rel="noreferrer">
-                  EPUB
+                  Download Book
                 </a>
               ) : null}
               {book.formats?.html ? (

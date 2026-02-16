@@ -1,7 +1,7 @@
 :root {
   font-family: "Segoe UI", system-ui, sans-serif;
-  color: #1f2937;
-  background: #f8fafc;
+  color: #0f172a;
+  background-color: #f8fafc;
 }
 
 * {
@@ -12,50 +12,128 @@ body {
   margin: 0;
 }
 
-.app {
-  max-width: 640px;
-  margin: 48px auto;
+a {
+  color: inherit;
+}
+
+.app-shell {
+  max-width: 920px;
+  margin: 24px auto;
   padding: 0 16px;
 }
 
-.note-form {
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.brand {
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.nav-links {
+  display: flex;
+  gap: 12px;
+}
+
+.nav-links a {
+  text-decoration: none;
+  padding: 4px 8px;
+  border-radius: 8px;
+}
+
+.nav-links a.active {
+  background: #e2e8f0;
+}
+
+.auth-chip {
   display: flex;
   gap: 8px;
-  margin: 16px 0;
+  align-items: center;
 }
 
-.note-form input {
-  flex: 1;
+.page {
+  display: grid;
+  gap: 16px;
+}
+
+.card {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 16px;
+}
+
+input {
+  width: 100%;
+  margin-bottom: 8px;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
-  padding: 10px 12px;
+  padding: 10px;
 }
 
-.note-form button {
+.row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.checkbox-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+button {
   border: 0;
   border-radius: 8px;
   padding: 10px 14px;
   background: #0f172a;
-  color: #fff;
+  color: #ffffff;
   cursor: pointer;
 }
 
-.note-form button:disabled {
-  opacity: 0.6;
+button:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
-.note-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  gap: 8px;
+pre {
+  background: #f1f5f9;
+  border-radius: 8px;
+  padding: 10px;
+  overflow: auto;
 }
 
-.note-list li {
-  background: #fff;
+.message {
+  margin: 8px 0 0;
+  font-weight: 600;
+}
+
+.book-list {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  display: grid;
+  gap: 10px;
+}
+
+.book-item {
   border: 1px solid #e2e8f0;
   border-radius: 8px;
-  padding: 10px 12px;
+  padding: 10px;
+}
+
+.book-item p {
+  margin: 4px 0;
+}
+
+.links {
+  display: flex;
+  gap: 10px;
 }

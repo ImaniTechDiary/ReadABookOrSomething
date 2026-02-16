@@ -107,6 +107,18 @@ button {
   cursor: pointer;
 }
 
+.button-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  background: #0f172a;
+  color: #ffffff;
+  text-decoration: none;
+}
+
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -242,6 +254,33 @@ pre {
   display: grid;
   gap: 8px;
   justify-items: end;
+}
+
+.reader-card {
+  min-height: 70vh;
+}
+
+.reader-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 12px;
+}
+
+.reader-frame {
+  width: 100%;
+  min-height: 70vh;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.reader-text {
+  min-height: 70vh;
+  white-space: pre-wrap;
+  line-height: 1.6;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
 }
 
 @media (max-width: 980px) {

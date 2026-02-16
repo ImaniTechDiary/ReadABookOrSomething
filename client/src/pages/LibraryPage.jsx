@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../lib/api";
 
@@ -79,6 +80,9 @@ export default function LibraryPage() {
             </div>
 
             <div className="library-actions">
+              <Link className="button-link" to={`/reader/${book.id}`}>
+                Read
+              </Link>
               <select
                 value={book.status}
                 onChange={(e) => onChangeStatus(book.id, e.target.value)}

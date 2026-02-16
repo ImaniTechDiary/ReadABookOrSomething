@@ -7,6 +7,7 @@ import BooksPage from "./pages/BooksPage";
 import HomePage from "./pages/HomePage";
 import LibraryPage from "./pages/LibraryPage";
 import ProfilePage from "./pages/ProfilePage";
+import ReaderPage from "./pages/ReaderPage";
 
 export default function App() {
   return (
@@ -30,6 +31,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <ProfilePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/reader/:id"
+              element={
+                <ProtectedRoute>
+                  <ReaderPage />
                 </ProtectedRoute>
               }
             />

@@ -5,6 +5,7 @@ import { AuthProvider } from "./context/AuthContext";
 import AuthPage from "./pages/AuthPage";
 import BooksPage from "./pages/BooksPage";
 import HomePage from "./pages/HomePage";
+import LibraryPage from "./pages/LibraryPage";
 import ProfilePage from "./pages/ProfilePage";
 
 export default function App() {
@@ -16,6 +17,14 @@ export default function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/books" element={<BooksPage />} />
+            <Route
+              path="/library"
+              element={
+                <ProtectedRoute>
+                  <LibraryPage />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/profile"
               element={

@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { useAuth } from "../context/AuthContext";
 import { api } from "../lib/api";
 
 export default function BooksPage() {
+  const { user } = useAuth();
   const [query, setQuery] = useState("pride and prejudice");
   const [limit, setLimit] = useState(12);
   const [sources, setSources] = useState({
@@ -12,6 +14,7 @@ export default function BooksPage() {
   const [results, setResults] = useState([]);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [libraryIds, setLibraryIds] = useState(new Set());
 
   const selectedSources = Object.entries(sources)
     .filter(([, enabled]) => enabled)
@@ -53,6 +56,50 @@ export default function BooksPage() {
     if (!selectedSources) return;
     runSearch("classic literature", { initialLoad: true });
   }, []);
+
+  useEffect(() => {
+    const loadLibrary = async () => {
+      if (!user) {
+        setLibraryIds(new Set());
+        return;
+      }
+
+      try {
+        const data = await api("/library", { method: "GET" });
+        setLibraryIds(new Set((data.results || []).map((item) => item.sourceBookId)));
+      } catch {
+        setLibraryIds(new Set());
+      }
+    };
+
+    loadLibrary();
+  }, [user]);
+
+  const onAddToLibrary = async (book) => {
+    if (!user) {
+      setMessage("Login required to add books to your library.");
+      return;
+    }
+
+    try {
+      await api("/library", {
+        method: "POST",
+        body: JSON.stringify({
+          sourceBookId: book.id,
+          title: book.title,
+          authors: book.authors,
+          coverUrl: book.coverUrl,
+          source: book.source,
+          formats: book.formats,
+          status: "to-read"
+        })
+      });
+      setLibraryIds((prev) => new Set(prev).add(book.id));
+      setMessage(`Added "${book.title}" to your library.`);
+    } catch (error) {
+      setMessage(error.message);
+    }
+  };
 
   const onSearch = async (event) => {
     event.preventDefault();
@@ -148,6 +195,13 @@ export default function BooksPage() {
             </div>
 
             <p className="links">
+              <button
+                type="button"
+                onClick={() => onAddToLibrary(book)}
+                disabled={libraryIds.has(book.id)}
+              >
+                {libraryIds.has(book.id) ? "In Library" : "Add to Library"}
+              </button>
               {book.formats?.epub ? (
                 <a href={book.formats.epub} target="_blank" rel="noreferrer">
                   Download Book

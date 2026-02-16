@@ -12,7 +12,12 @@ export function AuthProvider({ children }) {
       const data = await api("/auth/me", { method: "GET" });
       setUser(data.user);
     } catch {
-      setUser(null);
+      try {
+        const refreshed = await api("/auth/refresh", { method: "POST" });
+        setUser(refreshed.user);
+      } catch {
+        setUser(null);
+      }
     } finally {
       setLoading(false);
     }

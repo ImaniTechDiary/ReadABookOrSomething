@@ -14,6 +14,7 @@ export default function Layout({ children }) {
         <nav className="nav-links">
           <NavLink to="/">Home</NavLink>
           <NavLink to="/books">Books</NavLink>
+          <NavLink to="/library">Library</NavLink>
           <NavLink to="/profile">Profile</NavLink>
         </nav>
 

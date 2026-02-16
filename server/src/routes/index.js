@@ -1,12 +1,14 @@
 import { Router } from "express";
-import noteRoutes from "./noteRoutes.js";
+import authRoutes from "./authRoutes.js";
+import bookRoutes from "./bookRoutes.js";
 
 const router = Router();
 
 router.get("/health", (_req, res) => {
-  res.status(200).json({ status: "ok", service: "server" });
+  res.status(200).json({ ok: true });
 });
 
-router.use("/notes", noteRoutes);
+router.use("/auth", authRoutes);
+router.use("/books", bookRoutes);
 
 export default router;

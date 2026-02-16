@@ -77,6 +77,13 @@ input {
   padding: 10px;
 }
 
+select {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 10px;
+  background: #ffffff;
+}
+
 .row {
   display: flex;
   gap: 8px;

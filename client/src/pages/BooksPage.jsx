@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 
 export default function BooksPage() {
   const [query, setQuery] = useState("pride and prejudice");
+  const [limit, setLimit] = useState(12);
   const [sources, setSources] = useState({
     gutendex: true,
     standardebooks: true,
@@ -21,27 +22,41 @@ export default function BooksPage() {
     setSources((prev) => ({ ...prev, [name]: !prev[name] }));
   };
 
-  const onSearch = async (event) => {
-    event.preventDefault();
+  const runSearch = async (searchQuery, options = {}) => {
+    const { initialLoad = false } = options;
     setLoading(true);
     setMessage("");
 
     try {
       const params = new URLSearchParams({
-        q: query,
+        q: searchQuery,
         sources: selectedSources,
-        limit: "20"
+        limit: String(limit)
       });
 
       const data = await api(`/books/search?${params.toString()}`, { method: "GET" });
       setResults(data.results || []);
-      setMessage(`Found ${data.count} result(s).`);
+      setMessage(
+        initialLoad
+          ? `Loaded ${data.count} starter book(s) from APIs.`
+          : `Found ${data.count} result(s).`
+      );
     } catch (error) {
       setMessage(error.message);
       setResults([]);
     } finally {
       setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    if (!selectedSources) return;
+    runSearch("classic literature", { initialLoad: true });
+  }, []);
+
+  const onSearch = async (event) => {
+    event.preventDefault();
+    await runSearch(query);
   };
 
   return (
@@ -80,6 +95,20 @@ export default function BooksPage() {
             />
             Wikisource
           </label>
+        </div>
+
+        <div className="row">
+          <label htmlFor="limit">Result limit</label>
+          <select
+            id="limit"
+            value={limit}
+            onChange={(e) => setLimit(Number(e.target.value))}
+          >
+            <option value={6}>6</option>
+            <option value={12}>12</option>
+            <option value={20}>20</option>
+            <option value={30}>30</option>
+          </select>
         </div>
 
         <button type="submit" disabled={loading || !selectedSources}>

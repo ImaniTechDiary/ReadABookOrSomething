@@ -2,6 +2,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../lib/api";
 
+const DEFAULT_ANNOTATION_COLORS = {
+  highlight: "#fde68a",
+  note: "#bfdbfe",
+  sticker: "#fecaca"
+};
+
+const normalizeHexColor = (value, fallback) => {
+  const candidate = (value || "").trim();
+  return /^#([0-9a-f]{6}|[0-9a-f]{3})$/i.test(candidate) ? candidate : fallback;
+};
+
 const stripRiskyHtml = (html) =>
   html
     .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
@@ -133,22 +144,20 @@ const resolveNodePath = (rootNode, path) => {
   return current;
 };
 
-const unwrapAnnotationMarks = (doc) => {
-  const marks = [...doc.querySelectorAll("mark[data-annotation-id]")];
-  for (const mark of marks) {
-    const parent = mark.parentNode;
-    if (!parent) continue;
-    while (mark.firstChild) {
-      parent.insertBefore(mark.firstChild, mark);
-    }
-    parent.removeChild(mark);
+const unwrapMarkNode = (mark) => {
+  const parent = mark.parentNode;
+  if (!parent) return;
+  while (mark.firstChild) {
+    parent.insertBefore(mark.firstChild, mark);
   }
+  parent.removeChild(mark);
 };
 
 export default function ReaderPage() {
   const { id } = useParams();
   const iframeRef = useRef(null);
   const textReaderRef = useRef(null);
+  const iframeSelectionCleanupRef = useRef(null);
 
   const [book, setBook] = useState(null);
   const [content, setContent] = useState("");
@@ -162,6 +171,16 @@ export default function ReaderPage() {
 
   const [annotations, setAnnotations] = useState([]);
   const [selectionRange, setSelectionRange] = useState(null);
+  const [defaultColors, setDefaultColors] = useState(() => {
+    try {
+      const raw = localStorage.getItem("reader-default-annotation-colors");
+      if (!raw) return DEFAULT_ANNOTATION_COLORS;
+      const parsed = JSON.parse(raw);
+      return { ...DEFAULT_ANNOTATION_COLORS, ...parsed };
+    } catch {
+      return DEFAULT_ANNOTATION_COLORS;
+    }
+  });
 
   const availableFormats = useMemo(() => {
     if (!book?.formats) return [];
@@ -288,10 +307,30 @@ export default function ReaderPage() {
     const doc = iframeRef.current?.contentDocument;
     if (!doc || selectedFormat !== "html") return;
 
-    unwrapAnnotationMarks(doc);
-
     const htmlAnnotations = annotations.filter((item) => item.format === "html");
+    const currentIds = new Set(htmlAnnotations.map((item) => item.id));
+
+    // Remove marks that no longer exist in current annotation state.
+    const existingMarks = [...doc.querySelectorAll("mark[data-annotation-id]")];
+    for (const mark of existingMarks) {
+      const annotationId = mark.dataset.annotationId || "";
+      if (!currentIds.has(annotationId)) {
+        unwrapMarkNode(mark);
+      }
+    }
+
     for (const annotation of htmlAnnotations) {
+      const existing = doc.querySelector(`mark[data-annotation-id="${annotation.id}"]`);
+      if (existing) {
+        existing.style.backgroundColor = normalizeHexColor(
+          annotation.color,
+          DEFAULT_ANNOTATION_COLORS.highlight
+        );
+        existing.title =
+          annotation.note || annotation.sticker || annotation.selectedText || "Annotation";
+        continue;
+      }
+
       const root = doc.body;
       const startNode = resolveNodePath(root, annotation.anchorStartPath);
       const endNode = resolveNodePath(root, annotation.anchorEndPath);
@@ -306,7 +345,10 @@ export default function ReaderPage() {
 
         const mark = doc.createElement("mark");
         mark.dataset.annotationId = annotation.id;
-        mark.style.backgroundColor = annotation.color || "#fde68a";
+        mark.style.backgroundColor = normalizeHexColor(
+          annotation.color,
+          DEFAULT_ANNOTATION_COLORS.highlight
+        );
         mark.style.borderRadius = "3px";
         mark.style.padding = "0 1px";
         mark.title = annotation.note || annotation.sticker || annotation.selectedText || "Annotation";
@@ -342,11 +384,13 @@ export default function ReaderPage() {
     setSelectionRange(selection);
   };
 
-  useEffect(() => {
+  const bindIframeSelectionHandlers = () => {
+    iframeSelectionCleanupRef.current?.();
+
     if (selectedFormat !== "html") return;
 
     const doc = iframeRef.current?.contentDocument;
-    if (!doc) return;
+    if (!doc?.body) return;
 
     const handleIframeSelection = () => {
       const selection = iframeRef.current?.contentWindow?.getSelection();
@@ -385,29 +429,36 @@ export default function ReaderPage() {
     doc.addEventListener("mouseup", handleIframeSelection);
     doc.addEventListener("keyup", handleIframeSelection);
 
-    return () => {
+    iframeSelectionCleanupRef.current = () => {
       doc.removeEventListener("mouseup", handleIframeSelection);
       doc.removeEventListener("keyup", handleIframeSelection);
     };
-  }, [selectedFormat, renderedHtml, selectedChapter]);
+  };
+
+  useEffect(() => () => iframeSelectionCleanupRef.current?.(), []);
+
+  useEffect(() => {
+    localStorage.setItem("reader-default-annotation-colors", JSON.stringify(defaultColors));
+  }, [defaultColors]);
 
   const createAnnotation = async (type) => {
     if (!book || !selectionRange) return;
 
     let note = "";
     let sticker = "";
-    let color = "#fde68a";
+    let color = normalizeHexColor(
+      defaultColors[type],
+      DEFAULT_ANNOTATION_COLORS[type] || DEFAULT_ANNOTATION_COLORS.highlight
+    );
 
     if (type === "note") {
       note = window.prompt("Enter note text", "") || "";
       if (!note.trim()) return;
-      color = "#bfdbfe";
     }
 
     if (type === "sticker") {
       sticker = window.prompt("Sticker (emoji)", "📌") || "";
       if (!sticker.trim()) return;
-      color = "#fecaca";
     }
 
     try {
@@ -437,7 +488,7 @@ export default function ReaderPage() {
       setSelectionRange(null);
       window.getSelection()?.removeAllRanges();
       iframeRef.current?.contentWindow?.getSelection()?.removeAllRanges();
-      setMessage(`${type} added.`);
+      setMessage(`${type} added with color ${color}.`);
     } catch (error) {
       setMessage(error.message);
     }
@@ -456,24 +507,31 @@ export default function ReaderPage() {
   const onEditAnnotation = async (annotation) => {
     const payload = {};
 
-    if (annotation.type === "note") {
-      const next = window.prompt("Edit note", annotation.note || "");
-      if (next === null) return;
-      payload.note = next;
-    }
+    const nextNote = window.prompt(
+      "Edit note (optional)",
+      annotation.note || annotation.selectedText || ""
+    );
+    if (nextNote === null) return;
+    payload.note = nextNote;
 
     if (annotation.type === "sticker") {
-      const next = window.prompt("Edit sticker", annotation.sticker || "📌");
-      if (next === null) return;
-      payload.sticker = next;
+      const nextSticker = window.prompt("Edit sticker", annotation.sticker || "📌");
+      if (nextSticker === null) return;
+      payload.sticker = nextSticker;
     }
 
-    const nextColor = window.prompt("Color (hex)", annotation.color || "#fde68a");
-    if (nextColor !== null && nextColor.trim()) {
-      payload.color = nextColor.trim();
-    }
-
-    if (!Object.keys(payload).length) return;
+    const nextColorInput = window.prompt(
+      "Edit color (hex like #facc15)",
+      normalizeHexColor(
+        annotation.color,
+        DEFAULT_ANNOTATION_COLORS[annotation.type] || DEFAULT_ANNOTATION_COLORS.highlight
+      )
+    );
+    if (nextColorInput === null) return;
+    payload.color = normalizeHexColor(
+      nextColorInput,
+      DEFAULT_ANNOTATION_COLORS[annotation.type] || DEFAULT_ANNOTATION_COLORS.highlight
+    );
 
     try {
       const data = await api(`/annotations/${annotation.id}`, {
@@ -485,6 +543,26 @@ export default function ReaderPage() {
         prev.map((item) => (item.id === annotation.id ? data.annotation : item))
       );
       setMessage("Annotation updated.");
+    } catch (error) {
+      setMessage(error.message);
+    }
+  };
+
+  const onChangeAnnotationColor = async (annotation, color) => {
+    try {
+      const safeColor = normalizeHexColor(
+        color,
+        DEFAULT_ANNOTATION_COLORS[annotation.type] || DEFAULT_ANNOTATION_COLORS.highlight
+      );
+      const data = await api(`/annotations/${annotation.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ color: safeColor })
+      });
+
+      setAnnotations((prev) =>
+        prev.map((item) => (item.id === annotation.id ? data.annotation : item))
+      );
+      setMessage("Annotation color updated.");
     } catch (error) {
       setMessage(error.message);
     }
@@ -585,6 +663,47 @@ export default function ReaderPage() {
               Sticker
             </button>
           </div>
+          <div className="row annotation-default-colors">
+            <label>
+              Highlight color
+              <input
+                type="color"
+                value={defaultColors.highlight}
+                onChange={(e) =>
+                  setDefaultColors((prev) => ({
+                    ...prev,
+                    highlight: normalizeHexColor(e.target.value, DEFAULT_ANNOTATION_COLORS.highlight)
+                  }))
+                }
+              />
+            </label>
+            <label>
+              Note color
+              <input
+                type="color"
+                value={defaultColors.note}
+                onChange={(e) =>
+                  setDefaultColors((prev) => ({
+                    ...prev,
+                    note: normalizeHexColor(e.target.value, DEFAULT_ANNOTATION_COLORS.note)
+                  }))
+                }
+              />
+            </label>
+            <label>
+              Sticker color
+              <input
+                type="color"
+                value={defaultColors.sticker}
+                onChange={(e) =>
+                  setDefaultColors((prev) => ({
+                    ...prev,
+                    sticker: normalizeHexColor(e.target.value, DEFAULT_ANNOTATION_COLORS.sticker)
+                  }))
+                }
+              />
+            </label>
+          </div>
         </div>
       )}
 
@@ -599,6 +718,7 @@ export default function ReaderPage() {
             onLoad={() => {
               jumpToChapter();
               applyHtmlAnnotations();
+              bindIframeSelectionHandlers();
             }}
           />
           <aside className="annotation-panel">
@@ -613,6 +733,18 @@ export default function ReaderPage() {
                   <p>{annotation.selectedText?.slice(0, 120)}</p>
                   {annotation.note ? <p>Note: {annotation.note}</p> : null}
                   {annotation.sticker ? <p>Sticker: {annotation.sticker}</p> : null}
+                  <label className="annotation-color-control">
+                    Color
+                    <input
+                      type="color"
+                      value={normalizeHexColor(
+                        annotation.color,
+                        DEFAULT_ANNOTATION_COLORS[annotation.type] ||
+                          DEFAULT_ANNOTATION_COLORS.highlight
+                      )}
+                      onChange={(e) => onChangeAnnotationColor(annotation, e.target.value)}
+                    />
+                  </label>
                   <div className="row">
                     <button type="button" onClick={() => onEditAnnotation(annotation)}>
                       Edit
@@ -646,7 +778,13 @@ export default function ReaderPage() {
                 <mark
                   key={annotation.id}
                   className={`annotation annotation-${annotation.type}`}
-                  style={{ backgroundColor: annotation.color || "#fde68a" }}
+                  style={{
+                    backgroundColor: normalizeHexColor(
+                      annotation.color,
+                      DEFAULT_ANNOTATION_COLORS[annotation.type] ||
+                        DEFAULT_ANNOTATION_COLORS.highlight
+                    )
+                  }}
                   title={annotation.note || annotation.sticker || annotation.selectedText}
                 >
                   {segment.text}
@@ -668,6 +806,18 @@ export default function ReaderPage() {
                   <p>{annotation.selectedText?.slice(0, 120)}</p>
                   {annotation.note ? <p>Note: {annotation.note}</p> : null}
                   {annotation.sticker ? <p>Sticker: {annotation.sticker}</p> : null}
+                  <label className="annotation-color-control">
+                    Color
+                    <input
+                      type="color"
+                      value={normalizeHexColor(
+                        annotation.color,
+                        DEFAULT_ANNOTATION_COLORS[annotation.type] ||
+                          DEFAULT_ANNOTATION_COLORS.highlight
+                      )}
+                      onChange={(e) => onChangeAnnotationColor(annotation, e.target.value)}
+                    />
+                  </label>
                   <div className="row">
                     <button type="button" onClick={() => onEditAnnotation(annotation)}>
                       Edit

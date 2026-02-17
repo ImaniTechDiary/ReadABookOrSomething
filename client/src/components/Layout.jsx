@@ -1,5 +1,6 @@
 import { Link, NavLink } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import logo from "../images/ReadABookOrSomethingLogo.png";
 
 export default function Layout({ children }) {
   const { user, logout } = useAuth();
@@ -9,6 +10,7 @@ export default function Layout({ children }) {
       <header className="topbar">
         <Link to="/" className="brand">
           ReadABookOrSomething
+          <img src={logo} alt="ReadABookOrSomething logo" className="brand-logo" />
         </Link>
 
         <nav className="nav-links">

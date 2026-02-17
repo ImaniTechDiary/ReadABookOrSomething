@@ -158,6 +158,7 @@ export default function ReaderPage() {
   const iframeRef = useRef(null);
   const textReaderRef = useRef(null);
   const iframeSelectionCleanupRef = useRef(null);
+  const annotationsRef = useRef([]);
 
   const [book, setBook] = useState(null);
   const [content, setContent] = useState("");
@@ -171,6 +172,13 @@ export default function ReaderPage() {
 
   const [annotations, setAnnotations] = useState([]);
   const [selectionRange, setSelectionRange] = useState(null);
+  const [noteModal, setNoteModal] = useState({ open: false, mode: "create", annotationId: null });
+  const [noteSelectionSnapshot, setNoteSelectionSnapshot] = useState(null);
+  const [noteForm, setNoteForm] = useState({
+    title: "",
+    body: "",
+    color: DEFAULT_ANNOTATION_COLORS.note
+  });
   const [defaultColors, setDefaultColors] = useState(() => {
     try {
       const raw = localStorage.getItem("reader-default-annotation-colors");
@@ -188,6 +196,17 @@ export default function ReaderPage() {
   }, [book]);
 
   const textSegments = useMemo(() => buildTextSegments(content, annotations), [content, annotations]);
+  const noteAnnotations = useMemo(
+    () =>
+      annotations
+        .filter((item) => item.type === "note")
+        .sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt)),
+    [annotations]
+  );
+
+  useEffect(() => {
+    annotationsRef.current = annotations;
+  }, [annotations]);
 
   const loadAnnotations = async () => {
     if (!book || selectedFormat === "epub") {
@@ -426,12 +445,32 @@ export default function ReaderPage() {
       });
     };
 
+    const handleIframeClick = (event) => {
+      const element = event.target;
+      if (!(element instanceof Element)) return;
+
+      const mark = element.closest("mark[data-annotation-id]");
+      if (!mark) return;
+
+      const annotationId = mark.getAttribute("data-annotation-id");
+      const annotation = annotationsRef.current.find((item) => item.id === annotationId);
+      if (!annotation) return;
+
+      if (annotation.type === "note") {
+        event.preventDefault();
+        event.stopPropagation();
+        openEditNoteModal(annotation);
+      }
+    };
+
     doc.addEventListener("mouseup", handleIframeSelection);
     doc.addEventListener("keyup", handleIframeSelection);
+    doc.addEventListener("click", handleIframeClick);
 
     iframeSelectionCleanupRef.current = () => {
       doc.removeEventListener("mouseup", handleIframeSelection);
       doc.removeEventListener("keyup", handleIframeSelection);
+      doc.removeEventListener("click", handleIframeClick);
     };
   };
 
@@ -441,8 +480,95 @@ export default function ReaderPage() {
     localStorage.setItem("reader-default-annotation-colors", JSON.stringify(defaultColors));
   }, [defaultColors]);
 
+  const openCreateNoteModal = (selection) => {
+    if (!selection) return;
+    setNoteSelectionSnapshot(selection);
+    setNoteForm({
+      title: "",
+      body: "",
+      color: normalizeHexColor(defaultColors.note, DEFAULT_ANNOTATION_COLORS.note)
+    });
+    setNoteModal({ open: true, mode: "create", annotationId: null });
+  };
+
+  const openEditNoteModal = (annotation) => {
+    setNoteSelectionSnapshot(null);
+    setNoteForm({
+      title: annotation.noteTitle || "",
+      body: annotation.note || "",
+      color: normalizeHexColor(annotation.color, DEFAULT_ANNOTATION_COLORS.note)
+    });
+    setNoteModal({ open: true, mode: "edit", annotationId: annotation.id });
+  };
+
+  const closeNoteModal = () => {
+    setNoteModal({ open: false, mode: "create", annotationId: null });
+    setNoteSelectionSnapshot(null);
+  };
+
+  const submitNoteModal = async (event) => {
+    event.preventDefault();
+
+    try {
+      if (noteModal.mode === "create") {
+        if (!book || !noteSelectionSnapshot) return;
+
+        const payload = {
+          libraryBookId: book.id,
+          format: noteSelectionSnapshot.format,
+          chapterId: noteSelectionSnapshot.chapterId || "all",
+          type: "note",
+          startOffset: noteSelectionSnapshot.startOffset || 0,
+          endOffset: noteSelectionSnapshot.endOffset || 0,
+          selectedText: noteSelectionSnapshot.selectedText || "",
+          anchorStartPath: noteSelectionSnapshot.anchorStartPath || "",
+          anchorStartOffset: noteSelectionSnapshot.anchorStartOffset || 0,
+          anchorEndPath: noteSelectionSnapshot.anchorEndPath || "",
+          anchorEndOffset: noteSelectionSnapshot.anchorEndOffset || 0,
+          note: noteForm.body,
+          noteTitle: noteForm.title,
+          color: normalizeHexColor(noteForm.color, DEFAULT_ANNOTATION_COLORS.note)
+        };
+
+        const data = await api("/annotations", {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+
+        setAnnotations((prev) => [...prev, data.annotation]);
+        setSelectionRange(null);
+        window.getSelection()?.removeAllRanges();
+        iframeRef.current?.contentWindow?.getSelection()?.removeAllRanges();
+        setMessage("Note saved.");
+      } else if (noteModal.annotationId) {
+        const data = await api(`/annotations/${noteModal.annotationId}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            note: noteForm.body,
+            noteTitle: noteForm.title,
+            color: normalizeHexColor(noteForm.color, DEFAULT_ANNOTATION_COLORS.note)
+          })
+        });
+
+        setAnnotations((prev) =>
+          prev.map((item) => (item.id === noteModal.annotationId ? data.annotation : item))
+        );
+        setMessage("Note updated.");
+      }
+
+      closeNoteModal();
+    } catch (error) {
+      setMessage(error.message);
+    }
+  };
+
   const createAnnotation = async (type) => {
     if (!book || !selectionRange) return;
+
+    if (type === "note") {
+      openCreateNoteModal(selectionRange);
+      return;
+    }
 
     let note = "";
     let sticker = "";
@@ -450,11 +576,6 @@ export default function ReaderPage() {
       defaultColors[type],
       DEFAULT_ANNOTATION_COLORS[type] || DEFAULT_ANNOTATION_COLORS.highlight
     );
-
-    if (type === "note") {
-      note = window.prompt("Enter note text", "") || "";
-      if (!note.trim()) return;
-    }
 
     if (type === "sticker") {
       sticker = window.prompt("Sticker (emoji)", "📌") || "";
@@ -505,14 +626,12 @@ export default function ReaderPage() {
   };
 
   const onEditAnnotation = async (annotation) => {
-    const payload = {};
+    if (annotation.type === "note") {
+      openEditNoteModal(annotation);
+      return;
+    }
 
-    const nextNote = window.prompt(
-      "Edit note (optional)",
-      annotation.note || annotation.selectedText || ""
-    );
-    if (nextNote === null) return;
-    payload.note = nextNote;
+    const payload = {};
 
     if (annotation.type === "sticker") {
       const nextSticker = window.prompt("Edit sticker", annotation.sticker || "📌");
@@ -756,6 +875,41 @@ export default function ReaderPage() {
                 </li>
               ))}
             </ul>
+            <div className="notes-table-wrap">
+              <h4>Notes For This Book</h4>
+              {noteAnnotations.length === 0 ? <p>No notes yet.</p> : null}
+              {noteAnnotations.length > 0 ? (
+                <table className="notes-table">
+                  <thead>
+                    <tr>
+                      <th>Title</th>
+                      <th>Note</th>
+                      <th>Excerpt</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {noteAnnotations.map((item) => (
+                      <tr key={`note-row-${item.id}`}>
+                        <td>{item.noteTitle || "Untitled"}</td>
+                        <td>{item.note || "-"}</td>
+                        <td>{item.selectedText?.slice(0, 80) || "-"}</td>
+                        <td>
+                          <div className="row">
+                            <button type="button" onClick={() => openEditNoteModal(item)}>
+                              Open
+                            </button>
+                            <button type="button" onClick={() => onDeleteAnnotation(item.id)}>
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : null}
+            </div>
           </aside>
         </div>
       ) : null}
@@ -786,6 +940,11 @@ export default function ReaderPage() {
                     )
                   }}
                   title={annotation.note || annotation.sticker || annotation.selectedText}
+                  onClick={() => {
+                    if (annotation.type === "note") {
+                      openEditNoteModal(annotation);
+                    }
+                  }}
                 >
                   {segment.text}
                   {annotation.type === "sticker" ? ` ${annotation.sticker || "📌"}` : ""}
@@ -829,7 +988,86 @@ export default function ReaderPage() {
                 </li>
               ))}
             </ul>
+            <div className="notes-table-wrap">
+              <h4>Notes For This Book</h4>
+              {noteAnnotations.length === 0 ? <p>No notes yet.</p> : null}
+              {noteAnnotations.length > 0 ? (
+                <table className="notes-table">
+                  <thead>
+                    <tr>
+                      <th>Title</th>
+                      <th>Note</th>
+                      <th>Excerpt</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {noteAnnotations.map((item) => (
+                      <tr key={`note-row-${item.id}`}>
+                        <td>{item.noteTitle || "Untitled"}</td>
+                        <td>{item.note || "-"}</td>
+                        <td>{item.selectedText?.slice(0, 80) || "-"}</td>
+                        <td>
+                          <div className="row">
+                            <button type="button" onClick={() => openEditNoteModal(item)}>
+                              Open
+                            </button>
+                            <button type="button" onClick={() => onDeleteAnnotation(item.id)}>
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : null}
+            </div>
           </aside>
+        </div>
+      ) : null}
+
+      {noteModal.open ? (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <form className="modal-card" onSubmit={submitNoteModal}>
+            <h3>{noteModal.mode === "create" ? "Create Note" : "Edit Note"}</h3>
+            <label>
+              Title
+              <input
+                value={noteForm.title}
+                onChange={(e) => setNoteForm((prev) => ({ ...prev, title: e.target.value }))}
+                placeholder="Note title"
+              />
+            </label>
+            <label>
+              Note
+              <textarea
+                value={noteForm.body}
+                onChange={(e) => setNoteForm((prev) => ({ ...prev, body: e.target.value }))}
+                rows={6}
+                placeholder="Write your note..."
+              />
+            </label>
+            <label className="annotation-color-control">
+              Color
+              <input
+                type="color"
+                value={noteForm.color}
+                onChange={(e) =>
+                  setNoteForm((prev) => ({
+                    ...prev,
+                    color: normalizeHexColor(e.target.value, DEFAULT_ANNOTATION_COLORS.note)
+                  }))
+                }
+              />
+            </label>
+            <div className="row">
+              <button type="submit">Save Note</button>
+              <button type="button" onClick={closeNoteModal}>
+                Cancel
+              </button>
+            </div>
+          </form>
         </div>
       ) : null}
 

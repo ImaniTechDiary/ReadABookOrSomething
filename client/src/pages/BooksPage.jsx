@@ -1,11 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../lib/api";
 
 export default function BooksPage() {
   const { user } = useAuth();
-  const [query, setQuery] = useState("pride and prejudice");
-  const [limit, setLimit] = useState(12);
+  const [searchMode, setSearchMode] = useState("aggregated");
+  const [query, setQuery] = useState("");
+  const [limit, setLimit] = useState(20);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [sourceStatus, setSourceStatus] = useState({});
   const [sources, setSources] = useState({
     gutendex: true,
     standardebooks: true,
@@ -16,45 +20,57 @@ export default function BooksPage() {
   const [loading, setLoading] = useState(false);
   const [libraryIds, setLibraryIds] = useState(new Set());
 
-  const selectedSources = Object.entries(sources)
-    .filter(([, enabled]) => enabled)
-    .map(([source]) => source)
-    .join(",");
+  const selectedSources = useMemo(
+    () =>
+      Object.entries(sources)
+        .filter(([, enabled]) => enabled)
+        .map(([source]) => source)
+        .join(","),
+    [sources]
+  );
+
+  const effectiveSources =
+    searchMode === "gutendex_full_catalog" ? "gutendex" : selectedSources;
 
   const onToggleSource = (name) => {
     setSources((prev) => ({ ...prev, [name]: !prev[name] }));
   };
 
-  const runSearch = async (searchQuery, options = {}) => {
-    const { initialLoad = false } = options;
+  const runSearch = async (searchQuery, nextPage = 1) => {
     setLoading(true);
     setMessage("");
 
     try {
       const params = new URLSearchParams({
         q: searchQuery,
-        sources: selectedSources,
-        limit: String(limit)
+        sources: effectiveSources,
+        limit: String(limit),
+        page: String(nextPage)
       });
 
       const data = await api(`/books/search?${params.toString()}`, { method: "GET" });
       setResults(data.results || []);
+      setPage(Number(data.page) || nextPage);
+      setTotal(Number(data.total) || 0);
+      setSourceStatus(data.sourceStatus || {});
       setMessage(
-        initialLoad
-          ? `Loaded ${data.count} starter book(s) from APIs.`
-          : `Found ${data.count} result(s).`
+        searchMode === "gutendex_full_catalog"
+          ? `Gutendex full catalog mode: page ${Number(data.page) || nextPage}.`
+          : `Showing page ${Number(data.page) || nextPage}.`
       );
     } catch (error) {
       setMessage(error.message);
       setResults([]);
+      setTotal(0);
+      setSourceStatus({});
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (!selectedSources) return;
-    runSearch("classic literature", { initialLoad: true });
+    if (!effectiveSources) return;
+    runSearch("", 1);
   }, []);
 
   useEffect(() => {
@@ -103,7 +119,17 @@ export default function BooksPage() {
 
   const onSearch = async (event) => {
     event.preventDefault();
-    await runSearch(query);
+    await runSearch(query, 1);
+  };
+
+  const onPrev = async () => {
+    if (page <= 1) return;
+    await runSearch(query, page - 1);
+  };
+
+  const onNext = async () => {
+    if (page * limit >= total) return;
+    await runSearch(query, page + 1);
   };
 
   return (
@@ -113,9 +139,24 @@ export default function BooksPage() {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search books"
-          required
+          placeholder="Search books (leave blank to browse all)"
         />
+
+        <div className="row checkbox-row">
+          <label htmlFor="search-mode">Search mode</label>
+          <select
+            id="search-mode"
+            value={searchMode}
+            onChange={(e) => {
+              const nextMode = e.target.value;
+              setSearchMode(nextMode);
+              setPage(1);
+            }}
+          >
+            <option value="aggregated">Aggregated Sources</option>
+            <option value="gutendex_full_catalog">Gutendex Full Catalog</option>
+          </select>
+        </div>
 
         <div className="row checkbox-row">
           <label>
@@ -123,6 +164,7 @@ export default function BooksPage() {
               type="checkbox"
               checked={sources.gutendex}
               onChange={() => onToggleSource("gutendex")}
+              disabled={searchMode === "gutendex_full_catalog"}
             />
             Gutendex
           </label>
@@ -131,6 +173,7 @@ export default function BooksPage() {
               type="checkbox"
               checked={sources.standardebooks}
               onChange={() => onToggleSource("standardebooks")}
+              disabled={searchMode === "gutendex_full_catalog"}
             />
             Standard Ebooks
           </label>
@@ -139,10 +182,15 @@ export default function BooksPage() {
               type="checkbox"
               checked={sources.wikisource}
               onChange={() => onToggleSource("wikisource")}
+              disabled={searchMode === "gutendex_full_catalog"}
             />
             Wikisource
           </label>
         </div>
+
+        {searchMode === "gutendex_full_catalog" ? (
+          <p className="reader-note">Full catalog mode uses Gutendex only.</p>
+        ) : null}
 
         <div className="row">
           <label htmlFor="limit">Result limit</label>
@@ -151,19 +199,37 @@ export default function BooksPage() {
             value={limit}
             onChange={(e) => setLimit(Number(e.target.value))}
           >
-            <option value={6}>6</option>
-            <option value={12}>12</option>
             <option value={20}>20</option>
             <option value={30}>30</option>
+            <option value={40}>40</option>
           </select>
         </div>
 
-        <button type="submit" disabled={loading || !selectedSources}>
+        <button type="submit" disabled={loading || !effectiveSources}>
           {loading ? "Searching..." : "Search"}
         </button>
       </form>
 
       {message ? <p className="message">{message}</p> : null}
+      <p>
+        Page {page} | Showing {results.length} / Total {total}
+      </p>
+      <div className="row">
+        <button type="button" onClick={onPrev} disabled={loading || page <= 1}>
+          Previous
+        </button>
+        <button type="button" onClick={onNext} disabled={loading || page * limit >= total}>
+          Next
+        </button>
+      </div>
+
+      <div className="row">
+        {Object.entries(sourceStatus).map(([name, status]) => (
+          <span key={name}>
+            {name}: {status.ok ? `ok (${status.count})` : `error (${status.error})`}
+          </span>
+        ))}
+      </div>
 
       <ul className="book-list">
         {results.map((book) => (

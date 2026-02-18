@@ -1,3 +1,5 @@
+import { fetchWithTimeout } from "../utils/fetchWithTimeout.js";
+
 const WIKISOURCE_API_BASE = "https://en.wikisource.org/w/api.php";
 
 const buildHtmlUrl = (title) =>
@@ -19,7 +21,7 @@ export const searchWikisource = async (query, options = {}) => {
   });
 
   // Stub-like implementation: try exact title parse and return one normalized item if found.
-  const response = await fetch(`${WIKISOURCE_API_BASE}?${params.toString()}`);
+  const response = await fetchWithTimeout(`${WIKISOURCE_API_BASE}?${params.toString()}`);
   if (!response.ok) {
     throw new Error(`Wikisource request failed: ${response.status}`);
   }
@@ -42,4 +44,3 @@ export const searchWikisource = async (query, options = {}) => {
     }
   ];
 };
-

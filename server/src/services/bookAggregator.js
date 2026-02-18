@@ -1,16 +1,10 @@
-import { searchGutendex } from "./bookSources/gutendex.js";
-import { searchStandardEbooksOpds } from "./bookSources/standardEbooksOpds.js";
-import { searchWikisource } from "./bookSources/wikisource.js";
+import { searchGutendex, searchGutendexWindow } from "./bookSources/gutendex.js";
+import { getFallbackBooksPage } from "./bookSources/fallbackBooks.js";
 
 const TEN_MINUTES_MS = 10 * 60 * 1000;
-const DEFAULT_SOURCES = ["gutendex", "standardebooks"];
-const SUPPORTED_SOURCES = ["gutendex", "standardebooks", "wikisource"];
-const SOURCE_FETCH_LIMIT = 50;
-
+const DEFAULT_SOURCES = ["gutendex"];
 const sourceHandlers = {
-  gutendex: searchGutendex,
-  standardebooks: searchStandardEbooksOpds,
-  wikisource: searchWikisource
+  gutendex: searchGutendex
 };
 
 const cache = new Map();
@@ -23,7 +17,6 @@ const normalizeText = (value = "") =>
     .trim();
 
 const normalizeAuthorKey = (authors = []) => normalizeText(authors[0] || "");
-
 const makeDedupeKey = (book) => `${normalizeText(book.title)}::${normalizeAuthorKey(book.authors)}`;
 
 const computeScore = (book, query) => {
@@ -49,48 +42,79 @@ const getCached = (key) => {
     cache.delete(key);
     return null;
   }
-  return value.results;
+  return value;
 };
 
-const setCached = (key, results) => {
+const setCached = (key, results, sourceStatus) => {
   cache.set(key, {
     createdAt: Date.now(),
-    results
+    results,
+    sourceStatus
   });
 };
 
-export const parseSourcesParam = (rawSources) => {
-  if (!rawSources) return DEFAULT_SOURCES;
-
-  const parsed = rawSources
-    .split(",")
-    .map((item) => item.trim().toLowerCase())
-    .filter(Boolean)
-    .filter((item) => SUPPORTED_SOURCES.includes(item));
-
-  return parsed.length ? [...new Set(parsed)] : DEFAULT_SOURCES;
+export const parseSourcesParam = (_rawSources) => {
+  return DEFAULT_SOURCES;
 };
 
-export const aggregateBooks = async ({ query, sources, limit = 20 }) => {
+export const aggregateBooks = async ({ query, sources, limit = 20, page = 1 }) => {
   const safeLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
+  const safePage = Math.max(Number(page) || 1, 1);
+  const start = (safePage - 1) * safeLimit;
+  const end = start + safeLimit;
+
   const cacheKey = getCacheKey(query, sources);
   const cached = getCached(cacheKey);
 
+  if (sources.length === 1 && sources[0] === "gutendex") {
+    const direct = await searchGutendexWindow(query, { limit: safeLimit, page: safePage });
+    return {
+      total: direct.total,
+      results: direct.results,
+      sourceStatus: {
+        gutendex: {
+          ok: true,
+          count: direct.results.length
+        }
+      }
+    };
+  }
+
   if (cached) {
-    return cached.slice(0, safeLimit);
+    return {
+      total: cached.results.length,
+      results: cached.results.slice(start, end),
+      sourceStatus: cached.sourceStatus || {}
+    };
   }
 
   const sourcePromises = sources.map(async (source) => {
     const handler = sourceHandlers[source];
     if (!handler) return [];
-    return handler(query, { limit: SOURCE_FETCH_LIMIT });
+    const sourceFetchLimit = Math.max(120, safePage * safeLimit * 3);
+    return handler(query, { limit: sourceFetchLimit });
   });
 
   const settled = await Promise.allSettled(sourcePromises);
+  const sourceStatus = {};
 
-  const combined = settled.flatMap((result) =>
-    result.status === "fulfilled" && Array.isArray(result.value) ? result.value : []
-  );
+  const combined = settled.flatMap((result, index) => {
+    const source = sources[index];
+    if (result.status === "fulfilled" && Array.isArray(result.value)) {
+      sourceStatus[source] = { ok: true, count: result.value.length };
+      return result.value;
+    }
+
+    sourceStatus[source] = {
+      ok: false,
+      count: 0,
+      error:
+        result.status === "rejected"
+          ? result.reason?.message || "Source request failed"
+          : "Source request failed"
+    };
+    return [];
+  });
 
   const dedupedByKey = new Map();
   for (const book of combined) {
@@ -98,7 +122,6 @@ export const aggregateBooks = async ({ query, sources, limit = 20 }) => {
     const score = computeScore(book, query);
     const withScore = { ...book, score };
     const existing = dedupedByKey.get(key);
-
     if (!existing || withScore.score > existing.score) {
       dedupedByKey.set(key, withScore);
     }
@@ -109,7 +132,37 @@ export const aggregateBooks = async ({ query, sources, limit = 20 }) => {
     return a.title.localeCompare(b.title);
   });
 
-  setCached(cacheKey, ranked);
-  return ranked.slice(0, safeLimit);
-};
+  const allSourcesFailed =
+    sources.length > 0 &&
+    sources.every((source) => sourceStatus[source] && sourceStatus[source].ok === false);
 
+  if (!(allSourcesFailed && ranked.length === 0)) {
+    setCached(cacheKey, ranked, sourceStatus);
+  }
+
+  if (allSourcesFailed && ranked.length === 0) {
+    const fallback = getFallbackBooksPage({ query, page: safePage, limit: safeLimit });
+    const fallbackResults = fallback.results.map((book) => ({
+      ...book,
+      score: computeScore(book, query)
+    }));
+
+    return {
+      total: fallback.total,
+      results: fallbackResults,
+      sourceStatus: {
+        ...sourceStatus,
+        fallback: {
+          ok: true,
+          count: fallbackResults.length
+        }
+      }
+    };
+  }
+
+  return {
+    total: ranked.length,
+    results: ranked.slice(start, end),
+    sourceStatus
+  };
+};

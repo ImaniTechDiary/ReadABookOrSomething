@@ -169,6 +169,9 @@ export default function ReaderPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [selectedFormat, setSelectedFormat] = useState("html");
+  const [readingLayout, setReadingLayout] = useState("scroll");
+  const [readerPage, setReaderPage] = useState(1);
+  const [readerTotalPages, setReaderTotalPages] = useState(1);
 
   const [annotations, setAnnotations] = useState([]);
   const [selectionRange, setSelectionRange] = useState(null);
@@ -308,6 +311,92 @@ export default function ReaderPage() {
     loadAnnotations();
   }, [book, selectedFormat, selectedChapter]);
 
+  const getReaderScrollElement = () => {
+    if (selectedFormat === "text") {
+      return textReaderRef.current;
+    }
+    if (selectedFormat === "html") {
+      const doc = iframeRef.current?.contentDocument;
+      return doc?.scrollingElement || doc?.documentElement || doc?.body || null;
+    }
+    return null;
+  };
+
+  const recalcReaderPages = () => {
+    if (readingLayout !== "paged") {
+      setReaderPage(1);
+      setReaderTotalPages(1);
+      return;
+    }
+
+    const element = getReaderScrollElement();
+    if (!element) {
+      setReaderPage(1);
+      setReaderTotalPages(1);
+      return;
+    }
+
+    const doc = iframeRef.current?.contentDocument;
+    const width = Math.max(element.clientWidth || 0, doc?.documentElement?.clientWidth || 0, 1);
+    const totalWidth = Math.max(
+      element.scrollWidth || 0,
+      doc?.documentElement?.scrollWidth || 0,
+      doc?.body?.scrollWidth || 0
+    );
+    const totalPages = Math.max(Math.floor(Math.max(totalWidth - 1, 0) / width) + 1, 1);
+    const currentPage = Math.min(Math.max(Math.floor(element.scrollLeft / width) + 1, 1), totalPages);
+    setReaderTotalPages(totalPages);
+    setReaderPage(currentPage);
+  };
+
+  const goToReaderPage = (targetPage) => {
+    const element = getReaderScrollElement();
+    if (!element) return;
+    const width = Math.max(element.clientWidth, 1);
+    const safePage = Math.min(Math.max(targetPage, 1), Math.max(readerTotalPages, 1));
+    element.scrollTo({
+      left: (safePage - 1) * width,
+      top: 0,
+      behavior: "smooth"
+    });
+    setReaderPage(safePage);
+  };
+
+  const applyIframeReadingLayout = () => {
+    if (selectedFormat !== "html") return;
+    const doc = iframeRef.current?.contentDocument;
+    if (!doc?.body || !doc?.documentElement) return;
+
+    const html = doc.documentElement;
+    const body = doc.body;
+
+    if (readingLayout === "paged") {
+      html.style.overflowY = "hidden";
+      html.style.overflowX = "auto";
+      html.style.scrollBehavior = "smooth";
+      body.style.margin = "0 auto";
+      body.style.padding = "20px";
+      body.style.height = "100%";
+      body.style.columnWidth = "80ch";
+      body.style.columnGap = "48px";
+      body.style.columnFill = "auto";
+      body.style.whiteSpace = "normal";
+      (doc.scrollingElement || html).scrollLeft = 0;
+    } else {
+      html.style.overflowY = "";
+      html.style.overflowX = "";
+      html.style.scrollBehavior = "";
+      body.style.margin = "";
+      body.style.padding = "";
+      body.style.height = "";
+      body.style.columnWidth = "";
+      body.style.columnGap = "";
+      body.style.columnFill = "";
+      body.style.whiteSpace = "";
+      (doc.scrollingElement || html).scrollLeft = 0;
+    }
+  };
+
   const jumpToChapter = () => {
     const doc = iframeRef.current?.contentDocument;
     if (!doc) return;
@@ -391,7 +480,24 @@ export default function ReaderPage() {
     if (selectedFormat !== "html" || !renderedHtml) return;
     jumpToChapter();
     applyHtmlAnnotations();
+    applyIframeReadingLayout();
+    recalcReaderPages();
   }, [selectedChapter, annotations, renderedHtml, selectedFormat]);
+
+  useEffect(() => {
+    if (selectedFormat === "epub") return;
+    setReaderPage(1);
+    setTimeout(() => {
+      applyIframeReadingLayout();
+      recalcReaderPages();
+    }, 120);
+  }, [readingLayout, selectedFormat, content, renderedHtml]);
+
+  useEffect(() => {
+    const onResize = () => recalcReaderPages();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [selectedFormat, readingLayout]);
 
   const onTextSelection = () => {
     if (selectedFormat !== "text" || !textReaderRef.current) {
@@ -466,11 +572,13 @@ export default function ReaderPage() {
     doc.addEventListener("mouseup", handleIframeSelection);
     doc.addEventListener("keyup", handleIframeSelection);
     doc.addEventListener("click", handleIframeClick);
+    doc.addEventListener("scroll", recalcReaderPages);
 
     iframeSelectionCleanupRef.current = () => {
       doc.removeEventListener("mouseup", handleIframeSelection);
       doc.removeEventListener("keyup", handleIframeSelection);
       doc.removeEventListener("click", handleIframeClick);
+      doc.removeEventListener("scroll", recalcReaderPages);
     };
   };
 
@@ -725,6 +833,37 @@ export default function ReaderPage() {
         </select>
       </div>
 
+      {selectedFormat !== "epub" ? (
+        <div className="row">
+          <label htmlFor="reading-layout">Layout</label>
+          <select
+            id="reading-layout"
+            value={readingLayout}
+            onChange={(e) => setReadingLayout(e.target.value)}
+          >
+            <option value="scroll">Scroll</option>
+            <option value="paged">Paged</option>
+          </select>
+          {readingLayout === "paged" ? (
+            <>
+              <button type="button" onClick={() => goToReaderPage(readerPage - 1)} disabled={readerPage <= 1}>
+                Previous Page
+              </button>
+              <button
+                type="button"
+                onClick={() => goToReaderPage(readerPage + 1)}
+                disabled={readerPage >= readerTotalPages}
+              >
+                Next Page
+              </button>
+              <span>
+                Page {readerPage} / {readerTotalPages}
+              </span>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+
       {selectedFormat === "html" && chapters.length > 0 ? (
         <div className="row">
           <label htmlFor="chapter">Chapter</label>
@@ -830,14 +969,16 @@ export default function ReaderPage() {
         <div className="reader-annotation-layout">
           <iframe
             ref={iframeRef}
-            className="reader-frame"
+            className={`reader-frame ${readingLayout === "paged" ? "reader-frame-paged" : ""}`}
             title="Book Reader"
             sandbox="allow-same-origin"
             srcDoc={renderedHtml}
             onLoad={() => {
               jumpToChapter();
               applyHtmlAnnotations();
+              applyIframeReadingLayout();
               bindIframeSelectionHandlers();
+              recalcReaderPages();
             }}
           />
           <aside className="annotation-panel">
@@ -918,9 +1059,10 @@ export default function ReaderPage() {
         <div className="reader-annotation-layout">
           <div
             ref={textReaderRef}
-            className="reader-text"
+            className={`reader-text ${readingLayout === "paged" ? "reader-text-paged" : ""}`}
             onMouseUp={onTextSelection}
             onKeyUp={onTextSelection}
+            onScroll={recalcReaderPages}
           >
             {textSegments.map((segment, index) => {
               if (segment.kind === "text") {

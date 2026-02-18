@@ -1,75 +1,62 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../lib/api";
 
 export default function BooksPage() {
   const { user } = useAuth();
-  const [searchMode, setSearchMode] = useState("aggregated");
   const [query, setQuery] = useState("");
   const [limit, setLimit] = useState(20);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [sourceStatus, setSourceStatus] = useState({});
-  const [sources, setSources] = useState({
-    gutendex: true,
-    standardebooks: true,
-    wikisource: false
-  });
   const [results, setResults] = useState([]);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [libraryIds, setLibraryIds] = useState(new Set());
 
-  const selectedSources = useMemo(
-    () =>
-      Object.entries(sources)
-        .filter(([, enabled]) => enabled)
-        .map(([source]) => source)
-        .join(","),
-    [sources]
-  );
-
-  const effectiveSources =
-    searchMode === "gutendex_full_catalog" ? "gutendex" : selectedSources;
-
-  const onToggleSource = (name) => {
-    setSources((prev) => ({ ...prev, [name]: !prev[name] }));
-  };
-
   const runSearch = async (searchQuery, nextPage = 1) => {
     setLoading(true);
     setMessage("");
+    const requestedSources = ["gutendex"];
+    setSourceStatus(
+      Object.fromEntries(
+        requestedSources.map((source) => [source, { ok: null, count: 0, error: "loading..." }])
+      )
+    );
 
     try {
       const params = new URLSearchParams({
         q: searchQuery,
-        sources: effectiveSources,
         limit: String(limit),
         page: String(nextPage)
       });
-
-      const data = await api(`/books/search?${params.toString()}`, { method: "GET" });
+      const data = await api(`/books/gutendex?${params.toString()}`, {
+        method: "GET",
+        timeoutMs: 25000
+      });
       setResults(data.results || []);
       setPage(Number(data.page) || nextPage);
       setTotal(Number(data.total) || 0);
       setSourceStatus(data.sourceStatus || {});
-      setMessage(
-        searchMode === "gutendex_full_catalog"
-          ? `Gutendex full catalog mode: page ${Number(data.page) || nextPage}.`
-          : `Showing page ${Number(data.page) || nextPage}.`
-      );
+      setMessage(`Gutendex mode: page ${Number(data.page) || nextPage}.`);
     } catch (error) {
       setMessage(error.message);
       setResults([]);
       setTotal(0);
-      setSourceStatus({});
+      setSourceStatus(
+        Object.fromEntries(
+          requestedSources.map((source) => [
+            source,
+            { ok: false, count: 0, error: error.message || "request failed" }
+          ])
+        )
+      );
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (!effectiveSources) return;
     runSearch("", 1);
   }, []);
 
@@ -142,55 +129,7 @@ export default function BooksPage() {
           placeholder="Search books (leave blank to browse all)"
         />
 
-        <div className="row checkbox-row">
-          <label htmlFor="search-mode">Search mode</label>
-          <select
-            id="search-mode"
-            value={searchMode}
-            onChange={(e) => {
-              const nextMode = e.target.value;
-              setSearchMode(nextMode);
-              setPage(1);
-            }}
-          >
-            <option value="aggregated">Aggregated Sources</option>
-            <option value="gutendex_full_catalog">Gutendex Full Catalog</option>
-          </select>
-        </div>
-
-        <div className="row checkbox-row">
-          <label>
-            <input
-              type="checkbox"
-              checked={sources.gutendex}
-              onChange={() => onToggleSource("gutendex")}
-              disabled={searchMode === "gutendex_full_catalog"}
-            />
-            Gutendex
-          </label>
-          <label>
-            <input
-              type="checkbox"
-              checked={sources.standardebooks}
-              onChange={() => onToggleSource("standardebooks")}
-              disabled={searchMode === "gutendex_full_catalog"}
-            />
-            Standard Ebooks
-          </label>
-          <label>
-            <input
-              type="checkbox"
-              checked={sources.wikisource}
-              onChange={() => onToggleSource("wikisource")}
-              disabled={searchMode === "gutendex_full_catalog"}
-            />
-            Wikisource
-          </label>
-        </div>
-
-        {searchMode === "gutendex_full_catalog" ? (
-          <p className="reader-note">Full catalog mode uses Gutendex only.</p>
-        ) : null}
+        <p className="reader-note">Source: Gutendex only.</p>
 
         <div className="row">
           <label htmlFor="limit">Result limit</label>
@@ -205,7 +144,7 @@ export default function BooksPage() {
           </select>
         </div>
 
-        <button type="submit" disabled={loading || !effectiveSources}>
+        <button type="submit" disabled={loading}>
           {loading ? "Searching..." : "Search"}
         </button>
       </form>
@@ -226,7 +165,12 @@ export default function BooksPage() {
       <div className="row">
         {Object.entries(sourceStatus).map(([name, status]) => (
           <span key={name}>
-            {name}: {status.ok ? `ok (${status.count})` : `error (${status.error})`}
+            {name}:{" "}
+            {status.ok === null
+              ? "loading..."
+              : status.ok
+                ? `ok (${status.count})`
+                : `error (${status.error})`}
           </span>
         ))}
       </div>

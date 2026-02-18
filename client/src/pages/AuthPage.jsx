@@ -78,8 +78,9 @@ export default function AuthPage() {
   };
 
   return (
-    <section className="card auth-card">
-      <h1>Account</h1>
+    <div className="auth-page-center">
+      <section className="card auth-card">
+        <h1>Account</h1>
 
       <div className="auth-toggle" role="tablist" aria-label="Authentication mode">
         <button
@@ -188,7 +189,8 @@ export default function AuthPage() {
         </form>
       )}
 
-      {message ? <p className="message">{message}</p> : null}
-    </section>
+        {message ? <p className="message">{message}</p> : null}
+      </section>
+    </div>
   );
 }

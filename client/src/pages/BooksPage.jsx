@@ -199,12 +199,29 @@ export default function BooksPage() {
                 <strong>{book.title}</strong>
               </p>
               <p>{book.authors?.length ? book.authors.join(", ") : "Unknown author"}</p>
-              <p>
+              {/* <p>
                 source: {book.source} | score: {book.score}
+              </p> */}
+              <p className="links book-meta-links">
+                {book.formats?.epub ? (
+                  <a href={book.formats.epub} target="_blank" rel="noreferrer">
+                    Download Book
+                  </a>
+                ) : null}
+                {book.formats?.html ? (
+                  <a href={book.formats.html} target="_blank" rel="noreferrer">
+                    View in Browser
+                  </a>
+                ) : null}
+                {/* {book.formats?.text ? (
+                  <a href={book.formats.text} target="_blank" rel="noreferrer">
+                    Text
+                  </a>
+                ) : null} */}
               </p>
             </div>
 
-            <p className="links">
+            <div className="book-actions">
               <button
                 type="button"
                 onClick={() => onAddToLibrary(book)}
@@ -212,22 +229,7 @@ export default function BooksPage() {
               >
                 {libraryIds.has(book.id) ? "In Library" : "Add to Library"}
               </button>
-              {book.formats?.epub ? (
-                <a href={book.formats.epub} target="_blank" rel="noreferrer">
-                  Download Book
-                </a>
-              ) : null}
-              {book.formats?.html ? (
-                <a href={book.formats.html} target="_blank" rel="noreferrer">
-                  HTML
-                </a>
-              ) : null}
-              {book.formats?.text ? (
-                <a href={book.formats.text} target="_blank" rel="noreferrer">
-                  Text
-                </a>
-              ) : null}
-            </p>
+            </div>
           </li>
         ))}
       </ul>

@@ -80,7 +80,7 @@ export default function LibraryPage() {
   });
 
   return (
-    <section className="card">
+    <section className="card page-shell">
       <div className="library-header">
         <h1>My Library</h1>
         <input

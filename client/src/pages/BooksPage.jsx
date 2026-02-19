@@ -146,7 +146,7 @@ export default function BooksPage() {
   };
 
   return (
-    <section className="card">
+    <section className="card page-shell">
       <h1>Books Search</h1>
       <form onSubmit={onSearch}>
         <div className="books-search-bar">

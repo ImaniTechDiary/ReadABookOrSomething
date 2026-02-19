@@ -122,7 +122,7 @@ export default function NotesPage() {
   };
 
   return (
-    <section className="card">
+    <section className="card page-shell">
       <h1>{heading}</h1>
       <div className="row">
         <label htmlFor="annotations-type">Type</label>

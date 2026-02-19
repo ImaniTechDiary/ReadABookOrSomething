@@ -193,6 +193,13 @@ export default function ReaderPage() {
       return DEFAULT_ANNOTATION_COLORS;
     }
   });
+  const [stickerPicker, setStickerPicker] = useState({
+    open: false,
+    query: "",
+    loading: false,
+    source: "fallback",
+    results: []
+  });
 
   const availableFormats = useMemo(() => {
     if (!book?.formats) return [];
@@ -702,6 +709,11 @@ export default function ReaderPage() {
       openCreateNoteModal(selectionRange || null);
       return;
     }
+    if (type === "sticker") {
+      if (!book) return;
+      setStickerPicker((prev) => ({ ...prev, open: true }));
+      return;
+    }
     if (!book) return;
     if (!selectionRange) {
       setMessage(`Select text first to add a ${type}.`);
@@ -714,11 +726,6 @@ export default function ReaderPage() {
       defaultColors[type],
       DEFAULT_ANNOTATION_COLORS[type] || DEFAULT_ANNOTATION_COLORS.highlight
     );
-
-    if (type === "sticker") {
-      sticker = window.prompt("Sticker (emoji)", "📌") || "";
-      if (!sticker.trim()) return;
-    }
 
     try {
       const payload = {
@@ -748,6 +755,91 @@ export default function ReaderPage() {
       window.getSelection()?.removeAllRanges();
       iframeRef.current?.contentWindow?.getSelection()?.removeAllRanges();
       setMessage(`${type} added with color ${color}.`);
+    } catch (error) {
+      setMessage(error.message);
+    }
+  };
+
+  const searchStickers = async (query = "") => {
+    try {
+      setStickerPicker((prev) => ({ ...prev, loading: true }));
+      const params = new URLSearchParams({
+        q: query,
+        limit: "24",
+        page: "1"
+      });
+      const data = await api(`/stickers/search?${params.toString()}`, { method: "GET" });
+      setStickerPicker((prev) => ({
+        ...prev,
+        loading: false,
+        source: data.source || "fallback",
+        results: data.results || []
+      }));
+    } catch {
+      setStickerPicker((prev) => ({ ...prev, loading: false, source: "fallback", results: [] }));
+    }
+  };
+
+  useEffect(() => {
+    if (!stickerPicker.open) return;
+    searchStickers(stickerPicker.query);
+  }, [stickerPicker.open]);
+
+  const onStickerSearch = async (event) => {
+    event.preventDefault();
+    await searchStickers(stickerPicker.query);
+  };
+
+  const closeStickerPicker = () => {
+    setStickerPicker((prev) => ({ ...prev, open: false }));
+  };
+
+  const applySticker = async (stickerItem) => {
+    if (!book) return;
+
+    const targetSelection = selectionRange || {
+      format: selectedFormat === "html" ? "html" : "text",
+      chapterId: selectedFormat === "html" ? selectedChapter || "all" : "all",
+      startOffset: 0,
+      endOffset: 0,
+      selectedText: "",
+      anchorStartPath: "",
+      anchorStartOffset: 0,
+      anchorEndPath: "",
+      anchorEndOffset: 0
+    };
+
+    try {
+      const payload = {
+        libraryBookId: book.id,
+        format: targetSelection.format,
+        chapterId: targetSelection.chapterId || "all",
+        type: "sticker",
+        startOffset: targetSelection.startOffset || 0,
+        endOffset: targetSelection.endOffset || 0,
+        selectedText: targetSelection.selectedText || "",
+        anchorStartPath: targetSelection.anchorStartPath || "",
+        anchorStartOffset: targetSelection.anchorStartOffset || 0,
+        anchorEndPath: targetSelection.anchorEndPath || "",
+        anchorEndOffset: targetSelection.anchorEndOffset || 0,
+        note: "",
+        sticker: stickerItem.sticker || stickerItem.label || "📌",
+        stickerLabel: stickerItem.label || "",
+        stickerPreviewUrl: stickerItem.previewUrl || "",
+        stickerLottieUrl: stickerItem.lottieUrl || "",
+        color: normalizeHexColor(defaultColors.sticker, DEFAULT_ANNOTATION_COLORS.sticker)
+      };
+
+      const data = await api("/annotations", {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+      setAnnotations((prev) => [...prev, data.annotation]);
+      setSelectionRange(null);
+      window.getSelection()?.removeAllRanges();
+      iframeRef.current?.contentWindow?.getSelection()?.removeAllRanges();
+      setMessage(`Sticker "${stickerItem.label || "Sticker"}" added.`);
+      closeStickerPicker();
     } catch (error) {
       setMessage(error.message);
     }
@@ -1024,7 +1116,10 @@ export default function ReaderPage() {
                   </p>
                   <p>{annotation.selectedText?.slice(0, 120)}</p>
                   {annotation.note ? <p>Note: {annotation.note}</p> : null}
-                  {annotation.sticker ? <p>Sticker: {annotation.sticker}</p> : null}
+                  {annotation.sticker ? <p>Sticker: {annotation.stickerLabel || annotation.sticker}</p> : null}
+                  {annotation.stickerPreviewUrl ? (
+                    <img src={annotation.stickerPreviewUrl} alt="" className="sticker-thumb" />
+                  ) : null}
                   <label className="annotation-color-control">
                     Color
                     <input
@@ -1126,7 +1221,10 @@ export default function ReaderPage() {
                   </p>
                   <p>{annotation.selectedText?.slice(0, 120)}</p>
                   {annotation.note ? <p>Note: {annotation.note}</p> : null}
-                  {annotation.sticker ? <p>Sticker: {annotation.sticker}</p> : null}
+                  {annotation.sticker ? <p>Sticker: {annotation.stickerLabel || annotation.sticker}</p> : null}
+                  {annotation.stickerPreviewUrl ? (
+                    <img src={annotation.stickerPreviewUrl} alt="" className="sticker-thumb" />
+                  ) : null}
                   <label className="annotation-color-control">
                     Color
                     <input
@@ -1221,8 +1319,49 @@ export default function ReaderPage() {
         </div>
       ) : null}
 
+      {stickerPicker.open ? (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-card sticker-modal">
+            <h3>Choose Sticker</h3>
+            <form onSubmit={onStickerSearch} className="row">
+              <input
+                value={stickerPicker.query}
+                onChange={(e) =>
+                  setStickerPicker((prev) => ({
+                    ...prev,
+                    query: e.target.value
+                  }))
+                }
+                placeholder="Search stickers"
+              />
+              <button type="submit">Search</button>
+            </form>
+            <p className="reader-note">Source: {stickerPicker.source}</p>
+            {stickerPicker.loading ? <p>Loading stickers...</p> : null}
+            <div className="sticker-grid">
+              {stickerPicker.results.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className="sticker-item-btn"
+                  onClick={() => applySticker(item)}
+                >
+                  {item.previewUrl ? <img src={item.previewUrl} alt="" className="sticker-thumb" /> : null}
+                  <span>{item.label}</span>
+                </button>
+              ))}
+            </div>
+            <div className="row">
+              <button type="button" onClick={closeStickerPicker}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {loading ? <p>Loading content...</p> : null}
-      {contentType ? <p className="reader-note">Content-Type: {contentType}</p> : null}
+      {/* {contentType ? <p className="reader-note">Content-Type: {contentType}</p> : null} */}
     </section>
   );
 }

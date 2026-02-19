@@ -85,7 +85,7 @@ export default function HomePage() {
 
   if (!user) {
     return (
-      <section className="card">
+      <section className="card dashboard-shell">
         <h1>Home</h1>
         <p>API health: {health}</p>
         <p>Login to view your reading dashboard.</p>
@@ -97,7 +97,7 @@ export default function HomePage() {
   }
 
   return (
-    <section className="card">
+    <section className="card dashboard-shell">
       <h1>Dashboard</h1>
       <p>API health: {health}</p>
       {loading ? <p>Loading dashboard...</p> : null}

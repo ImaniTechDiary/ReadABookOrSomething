@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../lib/api";
 
 const DEFAULT_ANNOTATION_COLORS = {
@@ -155,6 +155,7 @@ const unwrapMarkNode = (mark) => {
 
 export default function ReaderPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const iframeRef = useRef(null);
   const textReaderRef = useRef(null);
   const iframeSelectionCleanupRef = useRef(null);
@@ -206,6 +207,15 @@ export default function ReaderPage() {
         .sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt)),
     [annotations]
   );
+  const highlightAnnotations = useMemo(
+    () =>
+      annotations
+        .filter((item) => item.type === "highlight")
+        .sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt)),
+    [annotations]
+  );
+  const recentNotes = useMemo(() => noteAnnotations.slice(0, 3), [noteAnnotations]);
+  const recentHighlights = useMemo(() => highlightAnnotations.slice(0, 3), [highlightAnnotations]);
 
   useEffect(() => {
     annotationsRef.current = annotations;
@@ -241,6 +251,7 @@ export default function ReaderPage() {
         setLoading(true);
         const data = await api(`/library/${id}`, { method: "GET" });
         setBook(data.book);
+        await api(`/library/${id}/opened`, { method: "PATCH" });
       } catch (error) {
         setMessage(error.message);
       } finally {
@@ -588,9 +599,8 @@ export default function ReaderPage() {
     localStorage.setItem("reader-default-annotation-colors", JSON.stringify(defaultColors));
   }, [defaultColors]);
 
-  const openCreateNoteModal = (selection) => {
-    if (!selection) return;
-    setNoteSelectionSnapshot(selection);
+  const openCreateNoteModal = (selection = null) => {
+    setNoteSelectionSnapshot(selection || null);
     setNoteForm({
       title: "",
       body: "",
@@ -619,20 +629,33 @@ export default function ReaderPage() {
 
     try {
       if (noteModal.mode === "create") {
-        if (!book || !noteSelectionSnapshot) return;
+        if (!book) return;
+        const fallbackFormat = selectedFormat === "html" ? "html" : "text";
+        const fallbackChapterId = selectedFormat === "html" ? selectedChapter || "all" : "all";
+        const target = noteSelectionSnapshot || {
+          format: fallbackFormat,
+          chapterId: fallbackChapterId,
+          startOffset: 0,
+          endOffset: 0,
+          selectedText: "",
+          anchorStartPath: "",
+          anchorStartOffset: 0,
+          anchorEndPath: "",
+          anchorEndOffset: 0
+        };
 
         const payload = {
           libraryBookId: book.id,
-          format: noteSelectionSnapshot.format,
-          chapterId: noteSelectionSnapshot.chapterId || "all",
+          format: target.format,
+          chapterId: target.chapterId || "all",
           type: "note",
-          startOffset: noteSelectionSnapshot.startOffset || 0,
-          endOffset: noteSelectionSnapshot.endOffset || 0,
-          selectedText: noteSelectionSnapshot.selectedText || "",
-          anchorStartPath: noteSelectionSnapshot.anchorStartPath || "",
-          anchorStartOffset: noteSelectionSnapshot.anchorStartOffset || 0,
-          anchorEndPath: noteSelectionSnapshot.anchorEndPath || "",
-          anchorEndOffset: noteSelectionSnapshot.anchorEndOffset || 0,
+          startOffset: target.startOffset || 0,
+          endOffset: target.endOffset || 0,
+          selectedText: target.selectedText || "",
+          anchorStartPath: target.anchorStartPath || "",
+          anchorStartOffset: target.anchorStartOffset || 0,
+          anchorEndPath: target.anchorEndPath || "",
+          anchorEndOffset: target.anchorEndOffset || 0,
           note: noteForm.body,
           noteTitle: noteForm.title,
           color: normalizeHexColor(noteForm.color, DEFAULT_ANNOTATION_COLORS.note)
@@ -648,6 +671,9 @@ export default function ReaderPage() {
         window.getSelection()?.removeAllRanges();
         iframeRef.current?.contentWindow?.getSelection()?.removeAllRanges();
         setMessage("Note saved.");
+        closeNoteModal();
+        navigate(`/notes?bookId=${book.id}&type=note`);
+        return;
       } else if (noteModal.annotationId) {
         const data = await api(`/annotations/${noteModal.annotationId}`, {
           method: "PATCH",
@@ -671,10 +697,14 @@ export default function ReaderPage() {
   };
 
   const createAnnotation = async (type) => {
-    if (!book || !selectionRange) return;
-
     if (type === "note") {
-      openCreateNoteModal(selectionRange);
+      if (!book) return;
+      openCreateNoteModal(selectionRange || null);
+      return;
+    }
+    if (!book) return;
+    if (!selectionRange) {
+      setMessage(`Select text first to add a ${type}.`);
       return;
     }
 
@@ -818,83 +848,8 @@ export default function ReaderPage() {
         <Link to="/library">Back to Library</Link>
       </div>
 
-      <div className="row">
-        <label htmlFor="format">Format</label>
-        <select
-          id="format"
-          value={selectedFormat}
-          onChange={(e) => setSelectedFormat(e.target.value)}
-        >
-          {availableFormats.map((format) => (
-            <option key={format} value={format}>
-              {format}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {selectedFormat !== "epub" ? (
-        <div className="row">
-          <label htmlFor="reading-layout">Layout</label>
-          <select
-            id="reading-layout"
-            value={readingLayout}
-            onChange={(e) => setReadingLayout(e.target.value)}
-          >
-            <option value="scroll">Scroll</option>
-            <option value="paged">Paged</option>
-          </select>
-          {readingLayout === "paged" ? (
-            <>
-              <button type="button" onClick={() => goToReaderPage(readerPage - 1)} disabled={readerPage <= 1}>
-                Previous Page
-              </button>
-              <button
-                type="button"
-                onClick={() => goToReaderPage(readerPage + 1)}
-                disabled={readerPage >= readerTotalPages}
-              >
-                Next Page
-              </button>
-              <span>
-                Page {readerPage} / {readerTotalPages}
-              </span>
-            </>
-          ) : null}
-        </div>
-      ) : null}
-
-      {selectedFormat === "html" && chapters.length > 0 ? (
-        <div className="row">
-          <label htmlFor="chapter">Chapter</label>
-          <select
-            id="chapter"
-            value={selectedChapter}
-            onChange={(e) => setSelectedChapter(e.target.value)}
-          >
-            <option value="all">All Chapters</option>
-            {chapters.map((chapter, index) => (
-              <option key={chapter.id} value={chapter.id}>
-                {index + 1}. {chapter.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      ) : null}
-
-      {book.formats?.epub ? (
-        <p>
-          EPUB:{" "}
-          <a href={book.formats.epub} target="_blank" rel="noreferrer">
-            Open/Download EPUB
-          </a>
-        </p>
-      ) : null}
-
-      {message ? <p className="message">{message}</p> : null}
-
       {(selectedFormat === "html" || selectedFormat === "text") && (
-        <div className="selection-bar">
+        <div className="selection-bar selection-bar-inline selection-bar-above-controls">
           <span>
             {selectionRange
               ? `Selected: "${selectionRange.selectedText.slice(0, 80)}${
@@ -905,17 +860,15 @@ export default function ReaderPage() {
           <div className="row">
             <button
               type="button"
-              disabled={!selectionRange}
               onClick={() => createAnnotation("highlight")}
             >
               Highlight
             </button>
-            <button type="button" disabled={!selectionRange} onClick={() => createAnnotation("note")}>
+            <button type="button" onClick={() => createAnnotation("note")}>
               Note
             </button>
             <button
               type="button"
-              disabled={!selectionRange}
               onClick={() => createAnnotation("sticker")}
             >
               Sticker
@@ -964,6 +917,85 @@ export default function ReaderPage() {
           </div>
         </div>
       )}
+
+      <div className="reader-controls">
+        <label className="reader-control" htmlFor="format">
+          <span>Format</span>
+          <select
+            id="format"
+            value={selectedFormat}
+            onChange={(e) => setSelectedFormat(e.target.value)}
+          >
+            {availableFormats.map((format) => (
+              <option key={format} value={format}>
+                {format}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        {selectedFormat !== "epub" ? (
+          <label className="reader-control" htmlFor="reading-layout">
+            <span>Layout</span>
+            <select
+              id="reading-layout"
+              value={readingLayout}
+              onChange={(e) => setReadingLayout(e.target.value)}
+            >
+              <option value="scroll">Scroll</option>
+              <option value="paged">Paged</option>
+            </select>
+          </label>
+        ) : null}
+
+        {selectedFormat === "html" && chapters.length > 0 ? (
+          <label className="reader-control reader-control-wide" htmlFor="chapter">
+            <span>Chapter</span>
+            <select
+              id="chapter"
+              value={selectedChapter}
+              onChange={(e) => setSelectedChapter(e.target.value)}
+            >
+              <option value="all">All Chapters</option>
+              {chapters.map((chapter, index) => (
+                <option key={chapter.id} value={chapter.id}>
+                  {index + 1}. {chapter.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+
+        {selectedFormat !== "epub" && readingLayout === "paged" ? (
+          <div className="reader-page-controls">
+            <button type="button" onClick={() => goToReaderPage(readerPage - 1)} disabled={readerPage <= 1}>
+              Previous Page
+            </button>
+            <button
+              type="button"
+              onClick={() => goToReaderPage(readerPage + 1)}
+              disabled={readerPage >= readerTotalPages}
+            >
+              Next Page
+            </button>
+            <span>
+              Page {readerPage} / {readerTotalPages}
+            </span>
+          </div>
+        ) : null}
+
+      </div>
+
+      {book.formats?.epub ? (
+        <p>
+          EPUB:{" "}
+          <a href={book.formats.epub} target="_blank" rel="noreferrer">
+            Open/Download EPUB
+          </a>
+        </p>
+      ) : null}
+
+      {message ? <p className="message">{message}</p> : null}
 
       {selectedFormat === "html" && renderedHtml ? (
         <div className="reader-annotation-layout">
@@ -1017,39 +1049,27 @@ export default function ReaderPage() {
               ))}
             </ul>
             <div className="notes-table-wrap">
-              <h4>Notes For This Book</h4>
-              {noteAnnotations.length === 0 ? <p>No notes yet.</p> : null}
-              {noteAnnotations.length > 0 ? (
-                <table className="notes-table">
-                  <thead>
-                    <tr>
-                      <th>Title</th>
-                      <th>Note</th>
-                      <th>Excerpt</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {noteAnnotations.map((item) => (
-                      <tr key={`note-row-${item.id}`}>
-                        <td>{item.noteTitle || "Untitled"}</td>
-                        <td>{item.note || "-"}</td>
-                        <td>{item.selectedText?.slice(0, 80) || "-"}</td>
-                        <td>
-                          <div className="row">
-                            <button type="button" onClick={() => openEditNoteModal(item)}>
-                              Open
-                            </button>
-                            <button type="button" onClick={() => onDeleteAnnotation(item.id)}>
-                              Delete
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : null}
+              <h4>Recent Notes</h4>
+              {recentNotes.length === 0 ? <p>No notes yet.</p> : null}
+              {recentNotes.map((item) => (
+                <div key={`recent-note-${item.id}`} className="annotation-mini-item">
+                  <p>
+                    <strong>{item.noteTitle || "Untitled"}</strong>
+                  </p>
+                  <p>{item.note || "-"}</p>
+                </div>
+              ))}
+              <Link to={`/notes?bookId=${book.id}&type=note`}>View all notes</Link>
+            </div>
+            <div className="notes-table-wrap">
+              <h4>Recent Highlights</h4>
+              {recentHighlights.length === 0 ? <p>No highlights yet.</p> : null}
+              {recentHighlights.map((item) => (
+                <div key={`recent-highlight-${item.id}`} className="annotation-mini-item">
+                  <p>{item.selectedText?.slice(0, 120) || "-"}</p>
+                </div>
+              ))}
+              <Link to={`/notes?bookId=${book.id}&type=highlight`}>View all highlights</Link>
             </div>
           </aside>
         </div>
@@ -1131,39 +1151,27 @@ export default function ReaderPage() {
               ))}
             </ul>
             <div className="notes-table-wrap">
-              <h4>Notes For This Book</h4>
-              {noteAnnotations.length === 0 ? <p>No notes yet.</p> : null}
-              {noteAnnotations.length > 0 ? (
-                <table className="notes-table">
-                  <thead>
-                    <tr>
-                      <th>Title</th>
-                      <th>Note</th>
-                      <th>Excerpt</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {noteAnnotations.map((item) => (
-                      <tr key={`note-row-${item.id}`}>
-                        <td>{item.noteTitle || "Untitled"}</td>
-                        <td>{item.note || "-"}</td>
-                        <td>{item.selectedText?.slice(0, 80) || "-"}</td>
-                        <td>
-                          <div className="row">
-                            <button type="button" onClick={() => openEditNoteModal(item)}>
-                              Open
-                            </button>
-                            <button type="button" onClick={() => onDeleteAnnotation(item.id)}>
-                              Delete
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : null}
+              <h4>Recent Notes</h4>
+              {recentNotes.length === 0 ? <p>No notes yet.</p> : null}
+              {recentNotes.map((item) => (
+                <div key={`recent-note-${item.id}`} className="annotation-mini-item">
+                  <p>
+                    <strong>{item.noteTitle || "Untitled"}</strong>
+                  </p>
+                  <p>{item.note || "-"}</p>
+                </div>
+              ))}
+              <Link to={`/notes?bookId=${book.id}&type=note`}>View all notes</Link>
+            </div>
+            <div className="notes-table-wrap">
+              <h4>Recent Highlights</h4>
+              {recentHighlights.length === 0 ? <p>No highlights yet.</p> : null}
+              {recentHighlights.map((item) => (
+                <div key={`recent-highlight-${item.id}`} className="annotation-mini-item">
+                  <p>{item.selectedText?.slice(0, 120) || "-"}</p>
+                </div>
+              ))}
+              <Link to={`/notes?bookId=${book.id}&type=highlight`}>View all highlights</Link>
             </div>
           </aside>
         </div>

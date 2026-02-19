@@ -11,6 +11,7 @@ export default function LibraryPage() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [deleteModal, setDeleteModal] = useState({ open: false, id: null, title: "" });
 
   const loadLibrary = async () => {
     try {
@@ -53,6 +54,20 @@ export default function LibraryPage() {
     } catch (error) {
       setMessage(error.message);
     }
+  };
+
+  const openDeleteModal = (book) => {
+    setDeleteModal({ open: true, id: book.id, title: book.title });
+  };
+
+  const closeDeleteModal = () => {
+    setDeleteModal({ open: false, id: null, title: "" });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteModal.id) return;
+    await onRemove(deleteModal.id);
+    closeDeleteModal();
   };
 
   return (
@@ -98,7 +113,7 @@ export default function LibraryPage() {
               <button
                 type="button"
                 className="library-remove-btn"
-                onClick={() => onRemove(book.id)}
+                onClick={() => openDeleteModal(book)}
                 aria-label="Remove book"
                 title="Remove"
               >
@@ -117,6 +132,25 @@ export default function LibraryPage() {
           </li>
         ))}
       </ul>
+
+      {deleteModal.open ? (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-card modal-card-confirm">
+            <h3>Delete Book</h3>
+            <p>
+              Remove <strong>{deleteModal.title}</strong> from your library?
+            </p>
+            <div className="row">
+              <button type="button" className="confirm-delete-btn" onClick={confirmDelete}>
+                Delete
+              </button>
+              <button type="button" className="cancel-delete-btn" onClick={closeDeleteModal}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

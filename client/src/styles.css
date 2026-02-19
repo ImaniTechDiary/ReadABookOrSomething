@@ -244,9 +244,17 @@ pre {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.dashboard-shell {
+  border: 1px solid #000000;
+}
+
+.page-shell {
+  border: 1px solid #000000;
+}
+
 .dashboard-stat,
 .dashboard-panel {
-  border: 1px solid #e2e8f0;
+  border: 1px solid #000000;
   border-radius: 10px;
   padding: 12px;
   background: #ffffff;
@@ -700,7 +708,7 @@ pre {
 }
 
 .selection-bar-inline .annotation-default-colors {
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 
 .reader-frame {
@@ -744,10 +752,14 @@ pre {
 .selection-bar {
   border: 1px solid #cbd5e1;
   border-radius: 10px;
-  padding: 10px;
+  padding: 14px;
   margin-bottom: 10px;
   display: grid;
-  gap: 8px;
+  gap: 14px;
+}
+
+.selection-bar .row {
+  gap: 12px;
 }
 
 .annotation-default-colors label {
@@ -795,6 +807,15 @@ pre {
 
 .annotation-panel p {
   margin: 4px 0;
+}
+
+.sticker-thumb {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
 }
 
 .notes-table-wrap {
@@ -897,6 +918,32 @@ pre {
   width: min(420px, 92vw);
   background: #ffffff;
   border: 1px solid #000000;
+}
+
+.sticker-modal {
+  width: min(720px, 96vw);
+}
+
+.sticker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.sticker-item-btn {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  padding: 10px;
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+}
+
+.sticker-item-btn:hover {
+  background: #f8fafc;
 }
 
 .confirm-delete-btn {

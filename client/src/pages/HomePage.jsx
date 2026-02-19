@@ -87,7 +87,7 @@ export default function HomePage() {
     return (
       <section className="card dashboard-shell">
         <h1>Home</h1>
-        <p>API health: {health}</p>
+        {/* <p>API health: {health}</p> */}
         <p>Login to view your reading dashboard.</p>
         <Link to="/auth" className="button-link">
           Login
@@ -99,7 +99,7 @@ export default function HomePage() {
   return (
     <section className="card dashboard-shell">
       <h1>Dashboard</h1>
-      <p>API health: {health}</p>
+      {/* <p>API health: {health}</p> */}
       {loading ? <p>Loading dashboard...</p> : null}
       {message ? <p className="message">{message}</p> : null}
 

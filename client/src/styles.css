@@ -878,6 +878,10 @@ pre {
   border-color: #000000;
 }
 
+.notes-table tbody tr:hover {
+  background: #f1f5f9;
+}
+
 .notes-actions-head {
   text-align: right;
 }

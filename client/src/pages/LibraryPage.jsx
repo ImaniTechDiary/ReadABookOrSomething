@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../lib/api";
+import blackBookIcon from "../images/BlackBookIcon.png";
 
 const STATUS_OPTIONS = ["to-read", "reading", "done"];
 
@@ -80,8 +81,9 @@ export default function LibraryPage() {
             </div>
 
             <div className="library-actions">
-              <Link className="button-link" to={`/reader/${book.id}`}>
-                Read
+              <Link className="button-link library-read-btn" to={`/reader/${book.id}`}>
+                <span className="library-read-btn-text">Read</span>
+                <img src={blackBookIcon} alt="" className="library-read-btn-icon" />
               </Link>
               <select
                 value={book.status}
@@ -93,8 +95,23 @@ export default function LibraryPage() {
                   </option>
                 ))}
               </select>
-              <button type="button" onClick={() => onRemove(book.id)}>
-                Remove
+              <button
+                type="button"
+                className="library-remove-btn"
+                onClick={() => onRemove(book.id)}
+                aria-label="Remove book"
+                title="Remove"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M3 6h18M8 6V4h8v2m-8 0 1 13h6l1-13"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
               </button>
             </div>
           </li>

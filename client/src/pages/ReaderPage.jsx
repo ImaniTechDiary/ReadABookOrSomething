@@ -949,63 +949,51 @@ export default function ReaderPage() {
                 }"`
               : "Select text to annotate."}
           </span>
-          <div className="row">
-            <button
-              type="button"
-              onClick={() => createAnnotation("highlight")}
-            >
-              Highlight
-            </button>
-            <button type="button" onClick={() => createAnnotation("note")}>
-              Note
-            </button>
-            <button
-              type="button"
-              onClick={() => createAnnotation("sticker")}
-            >
-              Sticker
-            </button>
-          </div>
-          <div className="row annotation-default-colors">
-            <label>
-              Highlight color
-              <input
-                type="color"
-                value={defaultColors.highlight}
-                onChange={(e) =>
-                  setDefaultColors((prev) => ({
-                    ...prev,
-                    highlight: normalizeHexColor(e.target.value, DEFAULT_ANNOTATION_COLORS.highlight)
-                  }))
-                }
-              />
-            </label>
-            <label>
-              Note color
-              <input
-                type="color"
-                value={defaultColors.note}
-                onChange={(e) =>
-                  setDefaultColors((prev) => ({
-                    ...prev,
-                    note: normalizeHexColor(e.target.value, DEFAULT_ANNOTATION_COLORS.note)
-                  }))
-                }
-              />
-            </label>
-            <label>
-              Sticker color
-              <input
-                type="color"
-                value={defaultColors.sticker}
-                onChange={(e) =>
-                  setDefaultColors((prev) => ({
-                    ...prev,
-                    sticker: normalizeHexColor(e.target.value, DEFAULT_ANNOTATION_COLORS.sticker)
-                  }))
-                }
-              />
-            </label>
+          <div className="annotation-action-columns">
+            <div className="annotation-action-block">
+              <button
+                type="button"
+                className="annotation-action-btn"
+                onClick={() => createAnnotation("highlight")}
+              >
+                Highlight
+              </button>
+              <label className="annotation-action-color">
+                Highlight color
+                <input
+                  type="color"
+                  value={defaultColors.highlight}
+                  onChange={(e) =>
+                    setDefaultColors((prev) => ({
+                      ...prev,
+                      highlight: normalizeHexColor(e.target.value, DEFAULT_ANNOTATION_COLORS.highlight)
+                    }))
+                  }
+                />
+              </label>
+            </div>
+            <div className="annotation-action-block">
+              <button
+                type="button"
+                className="annotation-action-btn"
+                onClick={() => createAnnotation("note")}
+              >
+                Note
+              </button>
+              <label className="annotation-action-color">
+                Note color
+                <input
+                  type="color"
+                  value={defaultColors.note}
+                  onChange={(e) =>
+                    setDefaultColors((prev) => ({
+                      ...prev,
+                      note: normalizeHexColor(e.target.value, DEFAULT_ANNOTATION_COLORS.note)
+                    }))
+                  }
+                />
+              </label>
+            </div>
           </div>
         </div>
       )}

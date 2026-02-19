@@ -762,9 +762,30 @@ pre {
   gap: 12px;
 }
 
-.annotation-default-colors label {
+.annotation-action-columns {
+  display: flex;
+  gap: 22px;
+  flex-wrap: wrap;
+}
+
+.annotation-action-block {
   display: grid;
-  gap: 4px;
+  gap: 8px;
+}
+
+.annotation-action-btn {
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.annotation-action-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.24);
+}
+
+.annotation-action-color {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-size: 12px;
   color: #475569;
 }
@@ -834,6 +855,9 @@ pre {
   width: 100%;
   border-collapse: collapse;
   font-size: 12px;
+  margin: 20px 0 8px;
+  border-radius: 10px;
+  overflow: hidden;
 }
 
 .notes-table th,
@@ -845,7 +869,13 @@ pre {
 }
 
 .notes-table th {
-  background: #f8fafc;
+  background: #000000;
+  color: #ffffff;
+  border-color: #000000;
+}
+
+.notes-table td {
+  border-color: #000000;
 }
 
 .notes-actions-head {

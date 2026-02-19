@@ -6,6 +6,7 @@ import AuthPage from "./pages/AuthPage";
 import BooksPage from "./pages/BooksPage";
 import HomePage from "./pages/HomePage";
 import LibraryPage from "./pages/LibraryPage";
+import NotesPage from "./pages/NotesPage";
 import ProfilePage from "./pages/ProfilePage";
 import ReaderPage from "./pages/ReaderPage";
 
@@ -31,6 +32,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <ProfilePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/notes"
+              element={
+                <ProtectedRoute>
+                  <NotesPage />
                 </ProtectedRoute>
               }
             />

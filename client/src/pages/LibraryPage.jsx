@@ -9,6 +9,7 @@ const STATUS_OPTIONS = ["to-read", "reading", "done"];
 export default function LibraryPage() {
   const { user } = useAuth();
   const [books, setBooks] = useState([]);
+  const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [deleteModal, setDeleteModal] = useState({ open: false, id: null, title: "" });
@@ -70,16 +71,33 @@ export default function LibraryPage() {
     closeDeleteModal();
   };
 
+  const filteredBooks = books.filter((book) => {
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    const title = (book.title || "").toLowerCase();
+    const authors = (book.authors || []).join(" ").toLowerCase();
+    return title.includes(q) || authors.includes(q);
+  });
+
   return (
     <section className="card">
-      <h1>My Library</h1>
+      <div className="library-header">
+        <h1>My Library</h1>
+        <input
+          className="library-search-input"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search by book or author"
+        />
+      </div>
       {loading ? <p>Loading library...</p> : null}
       {message ? <p className="message">{message}</p> : null}
 
       {!loading && books.length === 0 ? <p>No saved books yet.</p> : null}
+      {!loading && books.length > 0 && filteredBooks.length === 0 ? <p>No matches found.</p> : null}
 
       <ul className="library-list">
-        {books.map((book) => (
+        {filteredBooks.map((book) => (
           <li key={book.id} className="library-item">
             {book.coverUrl ? (
               <img src={book.coverUrl} alt={`${book.title} cover`} className="library-cover" />

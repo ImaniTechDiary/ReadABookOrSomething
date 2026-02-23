@@ -13,6 +13,7 @@ export default function LibraryPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [deleteModal, setDeleteModal] = useState({ open: false, id: null, title: "" });
+  const [deleting, setDeleting] = useState(false);
 
   const loadLibrary = async () => {
     try {
@@ -66,9 +67,15 @@ export default function LibraryPage() {
   };
 
   const confirmDelete = async () => {
-    if (!deleteModal.id) return;
-    await onRemove(deleteModal.id);
-    closeDeleteModal();
+    if (!deleteModal.id || deleting) return;
+    try {
+      setDeleting(true);
+      setMessage("Deleting book...");
+      await onRemove(deleteModal.id);
+      closeDeleteModal();
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const filteredBooks = books.filter((book) => {
@@ -159,10 +166,20 @@ export default function LibraryPage() {
               Remove <strong>{deleteModal.title}</strong> from your library?
             </p>
             <div className="row">
-              <button type="button" className="confirm-delete-btn" onClick={confirmDelete}>
-                Delete
+              <button
+                type="button"
+                className="confirm-delete-btn"
+                onClick={confirmDelete}
+                disabled={deleting}
+              >
+                {deleting ? "Deleting..." : "Delete"}
               </button>
-              <button type="button" className="cancel-delete-btn" onClick={closeDeleteModal}>
+              <button
+                type="button"
+                className="cancel-delete-btn"
+                onClick={closeDeleteModal}
+                disabled={deleting}
+              >
                 Cancel
               </button>
             </div>

@@ -23,11 +23,19 @@ a {
 }
 
 .topbar {
+  position: sticky;
+  top: 0;
+  left: auto;
+  transform: none;
+  width: auto;
+  z-index: 100;
+  padding: 10px 16px 8px;
+  background: #f8fafc;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   flex-wrap: wrap;
   /* background-color: #0f172a;
   color:#cbd5e1; */
@@ -260,6 +268,11 @@ pre {
   background: #ffffff;
 }
 
+.dashboard-stat:hover {
+  background: #000000;
+  color: #f8fafc;
+}
+
 .dashboard-stat h3,
 .dashboard-panel h3 {
   margin: 0 0 8px;
@@ -270,6 +283,25 @@ pre {
   margin: 0;
   font-size: 28px;
   font-weight: 700;
+}
+
+.dashboard-last-book-cover {
+  width: 250px;
+  height: 274px;
+  object-fit: cover;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #f8fafc;
+  margin: 4px 0;
+}
+
+.dashboard-author-name {
+  font-weight: 700;
+  font-style: italic;
+}
+
+.dashboard-last-opened {
+  font-style: italic;
 }
 
 .books-search-bar {
@@ -851,6 +883,44 @@ pre {
   background: #f8fafc;
 }
 
+.dashboard-panel .annotation-mini-item:hover {
+  background: #000000;
+  color: #f8fafc;
+}
+
+.dashboard-cta-wrap {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.dashboard-panel-bottom-cta {
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-panel-bottom-cta .dashboard-cta-wrap {
+  margin-top: auto;
+}
+
+.dashboard-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #000000;
+  background: #e2e8f0;
+  color: #0f172a;
+  text-decoration: none;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.dashboard-cta:hover {
+  background: #000000;
+  color: #f8fafc;
+}
+
 .notes-table {
   width: 100%;
   border-collapse: collapse;
@@ -903,6 +973,7 @@ pre {
   background: transparent;
   color: #000000;
   border: 1px solid #000000;
+  transition: transform 160ms ease, box-shadow 160ms ease;
 }
 
 .notes-action-btn svg {
@@ -914,6 +985,11 @@ pre {
   background: transparent;
   color: #000000;
   border: 1px solid #000000;
+}
+
+.notes-action-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(15, 23, 42, 0.2);
 }
 
 .annotation-color-control {
@@ -984,12 +1060,20 @@ pre {
   background: #000000;
   color: #ffffff;
   border: 1px solid #000000;
+  transition: transform 160ms ease, box-shadow 160ms ease;
 }
 
 .cancel-delete-btn {
   background: #ffffff;
   color: #000000;
   border: 1px solid #000000;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.confirm-delete-btn:hover,
+.cancel-delete-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 14px rgba(15, 23, 42, 0.2);
 }
 
 @media (max-width: 980px) {

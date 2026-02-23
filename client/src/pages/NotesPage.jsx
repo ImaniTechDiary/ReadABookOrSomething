@@ -14,6 +14,7 @@ export default function NotesPage() {
   const [message, setMessage] = useState("");
   const [editModal, setEditModal] = useState({ open: false, itemId: null, type: "note" });
   const [deleteModal, setDeleteModal] = useState({ open: false, itemId: null });
+  const [deleting, setDeleting] = useState(false);
   const [editForm, setEditForm] = useState({
     title: "",
     note: "",
@@ -110,14 +111,18 @@ export default function NotesPage() {
   };
 
   const confirmDelete = async () => {
-    if (!deleteModal.itemId) return;
+    if (!deleteModal.itemId || deleting) return;
     try {
+      setDeleting(true);
+      setMessage("Deleting annotation...");
       await api(`/annotations/${deleteModal.itemId}`, { method: "DELETE" });
       setResults((prev) => prev.filter((item) => item.id !== deleteModal.itemId));
       setMessage("Annotation deleted.");
       closeDeleteModal();
     } catch (error) {
       setMessage(error.message);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -279,10 +284,20 @@ export default function NotesPage() {
             <h3>Delete Annotation</h3>
             <p>This action cannot be undone.</p>
             <div className="row">
-              <button type="button" className="confirm-delete-btn" onClick={confirmDelete}>
-                Delete
+              <button
+                type="button"
+                className="confirm-delete-btn"
+                onClick={confirmDelete}
+                disabled={deleting}
+              >
+                {deleting ? "Deleting..." : "Delete"}
               </button>
-              <button type="button" className="cancel-delete-btn" onClick={closeDeleteModal}>
+              <button
+                type="button"
+                className="cancel-delete-btn"
+                onClick={closeDeleteModal}
+                disabled={deleting}
+              >
                 Cancel
               </button>
             </div>

@@ -123,28 +123,50 @@ export default function HomePage() {
       </div>
 
       <div className="dashboard-grid dashboard-grid-secondary">
-        <article className="dashboard-panel">
+        <article className="dashboard-panel dashboard-panel-bottom-cta">
           <h3>Last Book Opened</h3>
           {totals.lastOpenedBook ? (
             <>
               <p>
                 <strong>{totals.lastOpenedBook.title}</strong>
               </p>
-              <p>{totals.lastOpenedBook.authors?.join(", ") || "Unknown author"}</p>
-              <p>Last opened: {dateLabel(totals.lastOpenedBook.lastOpenedAt)}</p>
-              <Link to={`/reader/${totals.lastOpenedBook.id}`}>Resume reading</Link>
+              {totals.lastOpenedBook.coverUrl ? (
+                <img
+                  src={totals.lastOpenedBook.coverUrl}
+                  alt={`${totals.lastOpenedBook.title} cover`}
+                  className="dashboard-last-book-cover"
+                />
+              ) : null}
+              <p>
+                Author:{" "}
+                <span className="dashboard-author-name">
+                  {totals.lastOpenedBook.authors?.join(", ") || "Unknown author"}
+                </span>
+              </p>
+              <p className="dashboard-last-opened">
+                Last opened: {dateLabel(totals.lastOpenedBook.lastOpenedAt)}
+              </p>
+              <div className="dashboard-cta-wrap">
+                <Link className="dashboard-cta" to={`/reader/${totals.lastOpenedBook.id}`}>
+                  Resume reading
+                </Link>
+              </div>
             </>
           ) : (
             <p>No book opened yet.</p>
           )}
         </article>
 
-        <article className="dashboard-panel">
+        <article className="dashboard-panel dashboard-panel-bottom-cta">
           <h3>Annotation Activity</h3>
           <p>Notes: {totals.notesCount}</p>
           <p>Highlights: {totals.highlightsCount}</p>
           <p>Stickers: {totals.stickersCount}</p>
-          <Link to="/notes?type=all">View all annotations</Link>
+          <div className="dashboard-cta-wrap">
+            <Link className="dashboard-cta" to="/notes?type=all">
+              View all annotations
+            </Link>
+          </div>
         </article>
 
         <article className="dashboard-panel">
@@ -159,7 +181,11 @@ export default function HomePage() {
               <p>{note.note?.slice(0, 120) || "-"}</p>
             </div>
           ))}
-          <Link to="/notes?type=note">Go to notes</Link>
+          <div className="dashboard-cta-wrap">
+            <Link className="dashboard-cta" to="/notes?type=note">
+              Go to notes
+            </Link>
+          </div>
         </article>
       </div>
     </section>

@@ -84,6 +84,19 @@ a {
   align-items: center;
 }
 
+.welcome-chip {
+  display: grid;
+  gap: 1px;
+  line-height: 1.1;
+}
+
+.welcome-label {
+  font-family: "Brush Script MT", "Lucida Handwriting", cursive;
+  font-size: 16px;
+  font-weight: 700;
+  font-style: italic;
+}
+
 .page {
   display: grid;
   gap: 16px;

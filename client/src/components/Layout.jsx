@@ -23,7 +23,10 @@ export default function Layout({ children }) {
         <div className="auth-chip">
           {user ? (
             <>
-              <span>{user.name}</span>
+              <div className="welcome-chip">
+                <span className="welcome-label">Welcome,</span>
+                <span>{user.name}</span>
+              </div>
               <button type="button" onClick={logout}>
                 Logout
               </button>

@@ -25,18 +25,56 @@ const buildChapterizedHtml = (html) => {
   try {
     const parser = new DOMParser();
     const doc = parser.parseFromString(safeHtml, "text/html");
-    const headings = [...doc.querySelectorAll("h1, h2, h3")].filter((heading) =>
+    const headingNodes = [...doc.querySelectorAll("h1, h2, h3")].filter((heading) =>
       Boolean(heading.textContent?.trim())
     );
 
-    const chapters = headings.map((heading, index) => {
-      const id = heading.id || `chapter-${index + 1}`;
+    const chaptersFromHeadings = headingNodes.map((heading, index) => {
+      const id = `reader-chapter-${index + 1}`;
       heading.id = id;
       return {
         id,
         label: heading.textContent.trim().slice(0, 120)
       };
     });
+
+    // Prefer TOC-style internal links when available. Gutenberg books commonly
+    // encode reliable chapter anchors there.
+    const chapterishPattern =
+      /(chapter|book|part|section|prologue|epilogue|introduction|preface|appendix)/i;
+    const idHintPattern = /(chap|book|part|sect|hch)/i;
+    const seen = new Set();
+    const tocChapters = [];
+
+    const internalLinks = [...doc.querySelectorAll('a[href^="#"]')];
+    for (const link of internalLinks) {
+      const href = (link.getAttribute("href") || "").trim();
+      const label = (link.textContent || "").replace(/\s+/g, " ").trim();
+      const rawId = href.slice(1).trim();
+      if (!rawId || !label) continue;
+
+      const decodedId = decodeURIComponent(rawId);
+      const target =
+        doc.getElementById(decodedId) ||
+        doc.querySelector(`a[name="${decodedId.replace(/"/g, '\\"')}"]`);
+      if (!target) continue;
+
+      if (!chapterishPattern.test(label) && !idHintPattern.test(decodedId)) continue;
+
+      if (!target.id) {
+        target.id = decodedId;
+      }
+
+      if (seen.has(target.id)) continue;
+      seen.add(target.id);
+
+      tocChapters.push({
+        id: target.id,
+        label: label.slice(0, 120)
+      });
+    }
+
+    const chapters = tocChapters.length >= 3 ? tocChapters : chaptersFromHeadings;
 
     return {
       html: doc.documentElement.outerHTML,
@@ -418,15 +456,36 @@ export default function ReaderPage() {
   const jumpToChapter = () => {
     const doc = iframeRef.current?.contentDocument;
     if (!doc) return;
+    const scrollRoot = doc.scrollingElement || doc.documentElement || doc.body;
+    if (!scrollRoot) return;
 
     if (selectedChapter === "all") {
-      doc.documentElement.scrollTop = 0;
-      doc.body.scrollTop = 0;
+      if (readingLayout === "paged") {
+        scrollRoot.scrollTo({ left: 0, top: 0, behavior: "smooth" });
+      } else {
+        scrollRoot.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+      }
       return;
     }
 
     const target = doc.getElementById(selectedChapter);
-    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!target) return;
+    try {
+      const win = iframeRef.current?.contentWindow;
+      if (win) {
+        win.location.hash = "";
+        win.location.hash = selectedChapter;
+      }
+    } catch {
+      // Ignore hash navigation errors and fall back to direct element scroll.
+    }
+
+    if (readingLayout === "paged") {
+      target.scrollIntoView({ behavior: "smooth", block: "start", inline: "start" });
+      return;
+    }
+
+    target.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
   };
 
   const applyHtmlAnnotations = () => {
@@ -496,11 +555,13 @@ export default function ReaderPage() {
 
   useEffect(() => {
     if (selectedFormat !== "html" || !renderedHtml) return;
-    jumpToChapter();
-    applyHtmlAnnotations();
     applyIframeReadingLayout();
-    recalcReaderPages();
-  }, [selectedChapter, annotations, renderedHtml, selectedFormat]);
+    applyHtmlAnnotations();
+    requestAnimationFrame(() => {
+      jumpToChapter();
+      recalcReaderPages();
+    });
+  }, [selectedChapter, annotations, renderedHtml, selectedFormat, readingLayout]);
 
   useEffect(() => {
     if (selectedFormat === "epub") return;
@@ -1086,11 +1147,13 @@ export default function ReaderPage() {
             sandbox="allow-same-origin"
             srcDoc={renderedHtml}
             onLoad={() => {
-              jumpToChapter();
-              applyHtmlAnnotations();
               applyIframeReadingLayout();
+              applyHtmlAnnotations();
               bindIframeSelectionHandlers();
-              recalcReaderPages();
+              requestAnimationFrame(() => {
+                jumpToChapter();
+                recalcReaderPages();
+              });
             }}
           />
           <aside className="annotation-panel">

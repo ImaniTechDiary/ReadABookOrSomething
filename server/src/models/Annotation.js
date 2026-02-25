@@ -69,6 +69,18 @@ const annotationSchema = new mongoose.Schema(
       type: String,
       default: ""
     },
+    stickerLabel: {
+      type: String,
+      default: ""
+    },
+    stickerPreviewUrl: {
+      type: String,
+      default: ""
+    },
+    stickerLottieUrl: {
+      type: String,
+      default: ""
+    },
     color: {
       type: String,
       default: "#fde68a"

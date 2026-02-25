@@ -18,9 +18,18 @@ const sanitizeAnnotation = (doc) => ({
   note: doc.note || "",
   noteTitle: doc.noteTitle || "",
   sticker: doc.sticker || "",
+  stickerLabel: doc.stickerLabel || "",
+  stickerPreviewUrl: doc.stickerPreviewUrl || "",
+  stickerLottieUrl: doc.stickerLottieUrl || "",
   color: doc.color || "#fde68a",
   createdAt: doc.createdAt,
   updatedAt: doc.updatedAt
+});
+
+const sanitizeAnnotationWithBook = (doc, book) => ({
+  ...sanitizeAnnotation(doc),
+  bookTitle: book?.title || "",
+  bookAuthors: book?.authors || []
 });
 
 const ensureLibraryOwnership = async (libraryBookId, userId) => {
@@ -67,6 +76,50 @@ export const listAnnotations = async (req, res, next) => {
   }
 };
 
+export const listAnnotationFeed = async (req, res, next) => {
+  try {
+    const libraryBookId = (req.query.libraryBookId || "").toString();
+    const type = (req.query.type || "").toString().trim();
+    const limit = Math.min(Math.max(Number(req.query.limit) || 100, 1), 500);
+
+    if (libraryBookId) {
+      const ownsBook = await ensureLibraryOwnership(libraryBookId, req.auth.userId);
+      if (!ownsBook) {
+        return res.status(404).json({ message: "library book not found" });
+      }
+    }
+
+    if (type && !["highlight", "note", "sticker"].includes(type)) {
+      return res.status(400).json({ message: "invalid annotation type" });
+    }
+
+    const query = { userId: req.auth.userId };
+    if (libraryBookId) query.libraryBookId = libraryBookId;
+    if (type) query.type = type;
+
+    const annotations = await Annotation.find(query)
+      .sort({ updatedAt: -1, createdAt: -1 })
+      .limit(limit);
+
+    const bookIds = [...new Set(annotations.map((item) => String(item.libraryBookId)))];
+    const books = await LibraryBook.find({
+      _id: { $in: bookIds },
+      userId: req.auth.userId
+    }).select("_id title authors");
+
+    const booksById = new Map(books.map((book) => [String(book._id), book]));
+
+    return res.status(200).json({
+      count: annotations.length,
+      results: annotations.map((annotation) =>
+        sanitizeAnnotationWithBook(annotation, booksById.get(String(annotation.libraryBookId)))
+      )
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 export const createAnnotation = async (req, res, next) => {
   try {
     const {
@@ -84,6 +137,9 @@ export const createAnnotation = async (req, res, next) => {
       note = "",
       noteTitle = "",
       sticker = "",
+      stickerLabel = "",
+      stickerPreviewUrl = "",
+      stickerLottieUrl = "",
       color = "#fde68a"
     } = req.body;
 
@@ -116,6 +172,9 @@ export const createAnnotation = async (req, res, next) => {
       note,
       noteTitle,
       sticker,
+      stickerLabel,
+      stickerPreviewUrl,
+      stickerLottieUrl,
       color
     });
 
@@ -139,6 +198,9 @@ export const updateAnnotation = async (req, res, next) => {
     const allowedFields = [
       "note",
       "sticker",
+      "stickerLabel",
+      "stickerPreviewUrl",
+      "stickerLottieUrl",
       "color",
       "type",
       "chapterId",

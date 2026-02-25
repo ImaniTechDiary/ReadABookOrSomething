@@ -16,17 +16,29 @@ export default function BooksPage() {
   const [libraryIds, setLibraryIds] = useState(new Set());
   const [sparkleBookIds, setSparkleBookIds] = useState(new Set());
 
+  const COMMON_GENRES = [
+    "Fiction",
+    "Romance",
+    "Adventure",
+    "Fantasy",
+    "Science Fiction",
+    "Historical Fiction",
+    "Poetry",
+    "Drama",
+    "Children's Literature",
+    "Mystery"
+  ];
+  const [genreCatalog, setGenreCatalog] = useState(COMMON_GENRES);
+
   const genreOptions = useMemo(() => {
-    const genres = results.flatMap((book) => book.genres || []);
-    return [...new Set(genres)].sort((a, b) => a.localeCompare(b));
-  }, [results]);
+    const merged = [...COMMON_GENRES, ...genreCatalog];
+    if (genreFilter && genreFilter !== "all") {
+      merged.push(genreFilter);
+    }
+    return [...new Set(merged)].sort((a, b) => a.localeCompare(b));
+  }, [genreCatalog, genreFilter]);
 
-  const filteredResults = useMemo(() => {
-    if (genreFilter === "all") return results;
-    return results.filter((book) => (book.genres || []).includes(genreFilter));
-  }, [results, genreFilter]);
-
-  const runSearch = async (searchQuery, nextPage = 1, nextLimit = limit) => {
+  const runSearch = async (searchQuery, nextPage = 1, nextLimit = limit, nextGenre = genreFilter) => {
     setLoading(true);
     setMessage("");
     const requestedSources = ["gutendex"];
@@ -42,11 +54,18 @@ export default function BooksPage() {
         limit: String(nextLimit),
         page: String(nextPage)
       });
+      if (nextGenre && nextGenre !== "all") {
+        params.set("genre", nextGenre);
+      }
       const data = await api(`/books/gutendex?${params.toString()}`, {
         method: "GET",
         timeoutMs: 45000
       });
       setResults(data.results || []);
+      setGenreCatalog((prev) => {
+        const discovered = (data.results || []).flatMap((book) => book.genres || []);
+        return [...new Set([...prev, ...discovered])];
+      });
       setPage(Number(data.page) || nextPage);
       setTotal(Number(data.total) || 0);
       setSourceStatus(data.sourceStatus || {});
@@ -69,7 +88,7 @@ export default function BooksPage() {
   };
 
   useEffect(() => {
-    runSearch("", 1);
+    runSearch("", 1, limit, genreFilter);
   }, []);
 
   useEffect(() => {
@@ -126,23 +145,23 @@ export default function BooksPage() {
 
   const onSearch = async (event) => {
     event.preventDefault();
-    await runSearch(query, 1, limit);
+    await runSearch(query, 1, limit, genreFilter);
   };
 
   const onPrev = async () => {
     if (page <= 1) return;
-    await runSearch(query, page - 1, limit);
+    await runSearch(query, page - 1, limit, genreFilter);
   };
 
   const onNext = async () => {
     if (page * limit >= total) return;
-    await runSearch(query, page + 1, limit);
+    await runSearch(query, page + 1, limit, genreFilter);
   };
 
   const onLimitChange = async (event) => {
     const nextLimit = Number(event.target.value);
     setLimit(nextLimit);
-    await runSearch(query, 1, nextLimit);
+    await runSearch(query, 1, nextLimit, genreFilter);
   };
 
   return (
@@ -159,7 +178,11 @@ export default function BooksPage() {
           <select
             id="genre-filter"
             value={genreFilter}
-            onChange={(e) => setGenreFilter(e.target.value)}
+            onChange={(e) => {
+              const nextGenre = e.target.value;
+              setGenreFilter(nextGenre);
+              runSearch(query, 1, limit, nextGenre);
+            }}
             className="books-genre-select"
           >
             <option value="all">All genres</option>
@@ -178,7 +201,7 @@ export default function BooksPage() {
 
       {message ? <p className="message">{message}</p> : null}
       <p>
-        Page {page} | Showing {filteredResults.length} / {results.length} loaded | API total {total}
+        Page {page} | Showing {results.length} loaded | API total {total}
       </p>
       <div className="books-page-controls">
         <label htmlFor="limit" className="books-limit-control">
@@ -211,7 +234,7 @@ export default function BooksPage() {
       </div>
 
       <ul className="book-list">
-        {filteredResults.map((book) => (
+        {results.map((book) => (
           <li key={book.id} className="book-item">
             <div className="book-cover-wrap">
               {book.coverUrl ? (

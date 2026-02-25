@@ -10,10 +10,12 @@ router.get("/gutendex", async (req, res, next) => {
     const query = (req.query.q || "").toString().trim();
     const limit = Number(req.query.limit) || 20;
     const page = Number(req.query.page) || 1;
-    const { total, results } = await searchGutendexWindow(query, { limit, page });
+    const genre = (req.query.genre || "").toString().trim();
+    const { total, results } = await searchGutendexWindow(query, { limit, page, genre });
 
     return res.status(200).json({
       query,
+      genre,
       page,
       limit,
       count: results.length,
@@ -30,10 +32,12 @@ router.get("/gutendex", async (req, res, next) => {
     const query = (req.query.q || "").toString().trim();
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 20;
+    const genre = (req.query.genre || "").toString().trim();
     const fallback = getFallbackBooksPage({ query, page, limit });
 
     return res.status(200).json({
       query,
+      genre,
       page,
       limit,
       count: fallback.results.length,

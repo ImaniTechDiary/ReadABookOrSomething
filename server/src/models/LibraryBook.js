@@ -39,6 +39,10 @@ const libraryBookSchema = new mongoose.Schema(
       type: String,
       enum: ["to-read", "reading", "done"],
       default: "to-read"
+    },
+    lastOpenedAt: {
+      type: Date,
+      default: null
     }
   },
   { timestamps: true }
@@ -47,4 +51,3 @@ const libraryBookSchema = new mongoose.Schema(
 libraryBookSchema.index({ userId: 1, sourceBookId: 1 }, { unique: true });
 
 export const LibraryBook = mongoose.model("LibraryBook", libraryBookSchema);
-

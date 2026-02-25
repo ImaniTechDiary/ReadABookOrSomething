@@ -3,6 +3,7 @@ import {
   addLibraryBook,
   getLibraryBookById,
   listLibraryBooks,
+  markLibraryBookOpened,
   removeLibraryBook,
   updateLibraryBookStatus
 } from "../controllers/libraryController.js";
@@ -14,6 +15,7 @@ router.use(requireAuth);
 router.get("/", listLibraryBooks);
 router.get("/:id", getLibraryBookById);
 router.post("/", addLibraryBook);
+router.patch("/:id/opened", markLibraryBookOpened);
 router.patch("/:id/status", updateLibraryBookStatus);
 router.delete("/:id", removeLibraryBook);
 

@@ -9,6 +9,7 @@ const sanitizeLibraryBook = (doc) => ({
   source: doc.source,
   formats: doc.formats || {},
   status: doc.status,
+  lastOpenedAt: doc.lastOpenedAt || null,
   createdAt: doc.createdAt,
   updatedAt: doc.updatedAt
 });
@@ -113,6 +114,24 @@ export const removeLibraryBook = async (req, res, next) => {
     }
 
     return res.status(200).json({ ok: true });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const markLibraryBookOpened = async (req, res, next) => {
+  try {
+    const book = await LibraryBook.findOneAndUpdate(
+      { _id: req.params.id, userId: req.auth.userId },
+      { lastOpenedAt: new Date() },
+      { new: true }
+    );
+
+    if (!book) {
+      return res.status(404).json({ message: "library book not found" });
+    }
+
+    return res.status(200).json({ book: sanitizeLibraryBook(book) });
   } catch (error) {
     return next(error);
   }

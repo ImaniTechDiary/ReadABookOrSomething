@@ -1,6 +1,13 @@
-const FALLBACK_GUTENBERG_IDS = [
+const FEATURED_GUTENBERG_IDS = [
   84, 1342, 11, 2701, 1661, 74, 98, 1400, 1080, 64317,
   2554, 5200, 4300, 46, 1952, 37106, 158, 1232, 35, 16
+];
+const FEATURED_GUTENBERG_ID_SET = new Set(FEATURED_GUTENBERG_IDS);
+const FALLBACK_GUTENBERG_IDS = [
+  ...FEATURED_GUTENBERG_IDS,
+  ...Array.from({ length: 300 }, (_, index) => index + 1).filter(
+    (id) => !FEATURED_GUTENBERG_ID_SET.has(id)
+  )
 ];
 
 const titleById = {
@@ -49,10 +56,34 @@ const authorById = {
   16: ["J. M. Barrie"],
 };
 
+const genreById = {
+  84: ["Horror", "Gothic Fiction", "Science Fiction"],
+  1342: ["Romance", "Fiction"],
+  11: ["Fantasy", "Children's Literature"],
+  2701: ["Adventure", "Fiction"],
+  1661: ["Mystery", "Detective Fiction"],
+  74: ["Adventure", "Children's Literature"],
+  98: ["Historical Fiction"],
+  1400: ["Fiction", "Coming of Age"],
+  1080: ["Satire"],
+  64317: ["Fiction", "Classic"],
+  2554: ["Psychological Fiction", "Crime"],
+  5200: ["Novella", "Absurdist"],
+  4300: ["Modernist Fiction"],
+  46: ["Holiday", "Novella"],
+  1952: ["Short Story", "Feminist Literature"],
+  37106: ["Coming of Age", "Family"],
+  158: ["Romance", "Fiction"],
+  1232: ["Political Philosophy"],
+  35: ["Science Fiction"],
+  16: ["Fantasy", "Children's Literature"]
+};
+
 const toBook = (id) => ({
   id: `fallback:${id}`,
   title: titleById[id] || `Project Gutenberg #${id}`,
   authors: authorById[id] || [],
+  genres: genreById[id] || ["General"],
   source: "gutendex",
   readable: true,
   coverUrl: `https://www.gutenberg.org/cache/epub/${id}/pg${id}.cover.medium.jpg`,
@@ -84,4 +115,3 @@ export const getFallbackBooksPage = ({ query = "", limit = 20, page = 1 }) => {
     results: allBooks.slice(start, end)
   };
 };
-

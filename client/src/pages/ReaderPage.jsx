@@ -214,6 +214,7 @@ export default function ReaderPage() {
 
   const [annotations, setAnnotations] = useState([]);
   const [selectionRange, setSelectionRange] = useState(null);
+  const [pendingAnnotationJumpId, setPendingAnnotationJumpId] = useState(null);
   const [noteModal, setNoteModal] = useState({ open: false, mode: "create", annotationId: null });
   const [noteSelectionSnapshot, setNoteSelectionSnapshot] = useState(null);
   const [noteForm, setNoteForm] = useState({
@@ -260,7 +261,7 @@ export default function ReaderPage() {
     [annotations]
   );
   const recentNotes = useMemo(() => noteAnnotations.slice(0, 3), [noteAnnotations]);
-  const recentHighlights = useMemo(() => highlightAnnotations.slice(0, 3), [highlightAnnotations]);
+  const recentHighlights = useMemo(() => highlightAnnotations.slice(0, 5), [highlightAnnotations]);
 
   useEffect(() => {
     annotationsRef.current = annotations;
@@ -277,10 +278,6 @@ export default function ReaderPage() {
         libraryBookId: book.id,
         format: selectedFormat
       });
-
-      if (selectedFormat === "html" && selectedChapter !== "all") {
-        params.set("chapterId", selectedChapter);
-      }
 
       const data = await api(`/annotations?${params.toString()}`, { method: "GET" });
       setAnnotations(data.results || []);
@@ -365,7 +362,7 @@ export default function ReaderPage() {
 
   useEffect(() => {
     loadAnnotations();
-  }, [book, selectedFormat, selectedChapter]);
+  }, [book, selectedFormat]);
 
   const getReaderScrollElement = () => {
     if (selectedFormat === "text") {
@@ -556,12 +553,16 @@ export default function ReaderPage() {
   useEffect(() => {
     if (selectedFormat !== "html" || !renderedHtml) return;
     applyIframeReadingLayout();
-    applyHtmlAnnotations();
     requestAnimationFrame(() => {
       jumpToChapter();
       recalcReaderPages();
     });
-  }, [selectedChapter, annotations, renderedHtml, selectedFormat, readingLayout]);
+  }, [selectedChapter, renderedHtml, selectedFormat, readingLayout]);
+
+  useEffect(() => {
+    if (selectedFormat !== "html" || !renderedHtml) return;
+    applyHtmlAnnotations();
+  }, [annotations, renderedHtml, selectedFormat]);
 
   useEffect(() => {
     if (selectedFormat === "epub") return;
@@ -776,7 +777,42 @@ export default function ReaderPage() {
       return;
     }
     if (!book) return;
-    if (!selectionRange) {
+
+    let activeSelection = selectionRange;
+    if (!activeSelection && selectedFormat === "html") {
+      const doc = iframeRef.current?.contentDocument;
+      const selection = iframeRef.current?.contentWindow?.getSelection();
+      if (doc && selection && selection.rangeCount > 0 && !selection.isCollapsed) {
+        const range = selection.getRangeAt(0);
+        if (doc.body.contains(range.startContainer) && doc.body.contains(range.endContainer)) {
+          const startPath = buildNodePath(doc.body, range.startContainer);
+          const endPath = buildNodePath(doc.body, range.endContainer);
+          const selectedText = selection.toString().trim();
+          if (startPath && endPath && selectedText) {
+            activeSelection = {
+              format: "html",
+              chapterId: selectedChapter,
+              startOffset: 0,
+              endOffset: 0,
+              selectedText,
+              anchorStartPath: startPath,
+              anchorStartOffset: range.startOffset,
+              anchorEndPath: endPath,
+              anchorEndOffset: range.endOffset
+            };
+            setSelectionRange(activeSelection);
+          }
+        }
+      }
+    } else if (!activeSelection && selectedFormat === "text" && textReaderRef.current) {
+      const liveTextSelection = getSelectionRangeForText(textReaderRef.current);
+      if (liveTextSelection) {
+        activeSelection = liveTextSelection;
+        setSelectionRange(liveTextSelection);
+      }
+    }
+
+    if (!activeSelection) {
       setMessage(`Select text first to add a ${type}.`);
       return;
     }
@@ -791,16 +827,16 @@ export default function ReaderPage() {
     try {
       const payload = {
         libraryBookId: book.id,
-        format: selectionRange.format,
-        chapterId: selectionRange.chapterId || "all",
+        format: activeSelection.format,
+        chapterId: activeSelection.chapterId || "all",
         type,
-        startOffset: selectionRange.startOffset || 0,
-        endOffset: selectionRange.endOffset || 0,
-        selectedText: selectionRange.selectedText,
-        anchorStartPath: selectionRange.anchorStartPath || "",
-        anchorStartOffset: selectionRange.anchorStartOffset || 0,
-        anchorEndPath: selectionRange.anchorEndPath || "",
-        anchorEndOffset: selectionRange.anchorEndOffset || 0,
+        startOffset: activeSelection.startOffset || 0,
+        endOffset: activeSelection.endOffset || 0,
+        selectedText: activeSelection.selectedText,
+        anchorStartPath: activeSelection.anchorStartPath || "",
+        anchorStartOffset: activeSelection.anchorStartOffset || 0,
+        anchorEndPath: activeSelection.anchorEndPath || "",
+        anchorEndOffset: activeSelection.anchorEndOffset || 0,
         note,
         sticker,
         color
@@ -977,6 +1013,50 @@ export default function ReaderPage() {
       setMessage(error.message);
     }
   };
+
+  const jumpToAnnotation = (annotation) => {
+    if (!annotation?.id) return;
+    setPendingAnnotationJumpId(annotation.id);
+
+    if (annotation.format && annotation.format !== selectedFormat) {
+      setSelectedFormat(annotation.format);
+    }
+  };
+
+  useEffect(() => {
+    if (!pendingAnnotationJumpId) return;
+
+    if (selectedFormat === "html") {
+      const doc = iframeRef.current?.contentDocument;
+      const win = iframeRef.current?.contentWindow;
+      if (!doc) return;
+      const mark = doc.querySelector(`mark[data-annotation-id="${pendingAnnotationJumpId}"]`);
+      if (!mark) return;
+      if (!win) return;
+      if (readingLayout === "paged") {
+        const targetLeft = Math.max(0, mark.getBoundingClientRect().left + win.scrollX - 12);
+        win.scrollTo({ left: targetLeft, top: 0, behavior: "auto" });
+      } else {
+        const targetTop = Math.max(0, mark.getBoundingClientRect().top + win.scrollY - 12);
+        win.scrollTo({ top: targetTop, left: 0, behavior: "auto" });
+      }
+      setPendingAnnotationJumpId(null);
+      return;
+    }
+
+    if (selectedFormat === "text") {
+      const mark = textReaderRef.current?.querySelector(
+        `mark[data-annotation-id="${pendingAnnotationJumpId}"]`
+      );
+      if (!mark) return;
+      const container = textReaderRef.current;
+      const containerRect = container.getBoundingClientRect();
+      const markRect = mark.getBoundingClientRect();
+      const targetTop = container.scrollTop + (markRect.top - containerRect.top) - 12;
+      container.scrollTo({ top: Math.max(0, targetTop), left: 0, behavior: "auto" });
+      setPendingAnnotationJumpId(null);
+    }
+  }, [pendingAnnotationJumpId, selectedFormat, renderedHtml, content, annotations, readingLayout]);
 
   if (!book && loading) {
     return <section className="card">Loading reader...</section>;
@@ -1165,7 +1245,13 @@ export default function ReaderPage() {
                   <p>
                     <strong>{annotation.type}</strong>
                   </p>
-                  <p>{annotation.selectedText?.slice(0, 120)}</p>
+                  <button
+                    type="button"
+                    className="annotation-jump-link"
+                    onClick={() => jumpToAnnotation(annotation)}
+                  >
+                    {annotation.selectedText?.slice(0, 120) || "-"}
+                  </button>
                   {annotation.note ? <p>Note: {annotation.note}</p> : null}
                   {annotation.sticker ? <p>Sticker: {annotation.stickerLabel || annotation.sticker}</p> : null}
                   {annotation.stickerPreviewUrl ? (
@@ -1212,7 +1298,13 @@ export default function ReaderPage() {
               {recentHighlights.length === 0 ? <p>No highlights yet.</p> : null}
               {recentHighlights.map((item) => (
                 <div key={`recent-highlight-${item.id}`} className="annotation-mini-item">
-                  <p>{item.selectedText?.slice(0, 120) || "-"}</p>
+                  <button
+                    type="button"
+                    className="annotation-jump-link"
+                    onClick={() => jumpToAnnotation(item)}
+                  >
+                    {item.selectedText?.slice(0, 120) || "-"}
+                  </button>
                 </div>
               ))}
               <Link to={`/notes?bookId=${book.id}&type=highlight`}>View all highlights</Link>
@@ -1239,6 +1331,7 @@ export default function ReaderPage() {
               return (
                 <mark
                   key={annotation.id}
+                  data-annotation-id={annotation.id}
                   className={`annotation annotation-${annotation.type}`}
                   style={{
                     backgroundColor: normalizeHexColor(
@@ -1270,7 +1363,13 @@ export default function ReaderPage() {
                   <p>
                     <strong>{annotation.type}</strong> ({annotation.startOffset}-{annotation.endOffset})
                   </p>
-                  <p>{annotation.selectedText?.slice(0, 120)}</p>
+                  <button
+                    type="button"
+                    className="annotation-jump-link"
+                    onClick={() => jumpToAnnotation(annotation)}
+                  >
+                    {annotation.selectedText?.slice(0, 120) || "-"}
+                  </button>
                   {annotation.note ? <p>Note: {annotation.note}</p> : null}
                   {annotation.sticker ? <p>Sticker: {annotation.stickerLabel || annotation.sticker}</p> : null}
                   {annotation.stickerPreviewUrl ? (
@@ -1317,7 +1416,13 @@ export default function ReaderPage() {
               {recentHighlights.length === 0 ? <p>No highlights yet.</p> : null}
               {recentHighlights.map((item) => (
                 <div key={`recent-highlight-${item.id}`} className="annotation-mini-item">
-                  <p>{item.selectedText?.slice(0, 120) || "-"}</p>
+                  <button
+                    type="button"
+                    className="annotation-jump-link"
+                    onClick={() => jumpToAnnotation(item)}
+                  >
+                    {item.selectedText?.slice(0, 120) || "-"}
+                  </button>
                 </div>
               ))}
               <Link to={`/notes?bookId=${book.id}&type=highlight`}>View all highlights</Link>

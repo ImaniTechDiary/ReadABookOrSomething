@@ -11,12 +11,21 @@ dotenv.config();
 
 const app = express();
 const port = Number(process.env.PORT) || 8000;
-const clientOrigin = process.env.CLIENT_ORIGIN || "http://localhost:5173";
+const defaultOrigins = ["http://localhost:5173"];
+const allowedOrigins = (process.env.CLIENT_ORIGIN || defaultOrigins.join(","))
+  .split(",")
+  .map((item) => item.trim())
+  .filter(Boolean);
 
 app.use(requestLogger);
 app.use(
   cors({
-    origin: clientOrigin,
+    origin: (origin, callback) => {
+      // Allow non-browser clients (no Origin header) such as health checks.
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      return callback(new Error("Not allowed by CORS"));
+    },
     credentials: true
   })
 );

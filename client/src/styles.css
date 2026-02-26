@@ -891,9 +891,48 @@ pre {
 .annotation-mini-item {
   border: 1px solid #e2e8f0;
   border-radius: 8px;
-  padding: 8px;
+  /* padding: 8px; */
   margin-bottom: 8px;
   background: #f8fafc;
+}
+.annotation-jump-link {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  color: #0f172a;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 6px;
+}
+.annotation-jump-link:hover {
+  text-decoration: none;
+  background: #000000;
+  color: #fefafc;
+}
+
+.annotation-view-all-wrap {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.annotation-view-all-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border: 1px solid #000000;
+  border-radius: 8px;
+  background: #fefafc;
+  color: #000000;
+  text-decoration: none;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.annotation-view-all-btn:hover {
+  background: #000000;
+  color: #fefafc;
 }
 
 .dashboard-panel .annotation-mini-item:hover {

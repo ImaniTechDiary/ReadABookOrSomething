@@ -1,5 +1,12 @@
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api";
+const normalizeApiBaseUrl = (rawValue) => {
+  const fallback = "http://localhost:8000/api";
+  const candidate = (rawValue || fallback).trim().replace(/\/+$/, "");
+  if (!candidate) return fallback;
+  if (/\/api$/i.test(candidate)) return candidate;
+  return `${candidate}/api`;
+};
+
+const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
 
 export const api = async (path, options = {}) => {
   const { timeoutMs = 30000, ...fetchOptions } = options;

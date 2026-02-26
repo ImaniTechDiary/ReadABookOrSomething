@@ -1240,7 +1240,9 @@ export default function ReaderPage() {
             <h3>Annotations</h3>
             {annotations.length === 0 ? <p>No annotations yet.</p> : null}
             <ul>
-              {annotations.map((annotation) => (
+              {annotations
+                .filter((annotation) => annotation.type !== "highlight")
+                .map((annotation) => (
                 <li key={annotation.id}>
                   <p>
                     <strong>{annotation.type}</strong>
@@ -1281,19 +1283,6 @@ export default function ReaderPage() {
               ))}
             </ul>
             <div className="notes-table-wrap">
-              <h4>Recent Notes</h4>
-              {recentNotes.length === 0 ? <p>No notes yet.</p> : null}
-              {recentNotes.map((item) => (
-                <div key={`recent-note-${item.id}`} className="annotation-mini-item">
-                  <p>
-                    <strong>{item.noteTitle || "Untitled"}</strong>
-                  </p>
-                  <p>{item.note || "-"}</p>
-                </div>
-              ))}
-              <Link to={`/notes?bookId=${book.id}&type=note`}>View all notes</Link>
-            </div>
-            <div className="notes-table-wrap">
               <h4>Recent Highlights</h4>
               {recentHighlights.length === 0 ? <p>No highlights yet.</p> : null}
               {recentHighlights.map((item) => (
@@ -1307,7 +1296,27 @@ export default function ReaderPage() {
                   </button>
                 </div>
               ))}
-              <Link to={`/notes?bookId=${book.id}&type=highlight`}>View all highlights</Link>
+              <div className="annotation-view-all-wrap">
+                <Link
+                  className="annotation-view-all-btn"
+                  to={`/notes?bookId=${book.id}&type=highlight`}
+                >
+                  View all highlights
+                </Link>
+              </div>
+            </div>
+            <div className="notes-table-wrap">
+              <h4>Recent Notes</h4>
+              {recentNotes.length === 0 ? <p>No notes yet.</p> : null}
+              {recentNotes.map((item) => (
+                <div key={`recent-note-${item.id}`} className="annotation-mini-item">
+                  <p>
+                    <strong>{item.noteTitle || "Untitled"}</strong>
+                  </p>
+                  <p>{item.note || "-"}</p>
+                </div>
+              ))}
+              <Link to={`/notes?bookId=${book.id}&type=note`}>View all notes</Link>
             </div>
           </aside>
         </div>
@@ -1358,7 +1367,9 @@ export default function ReaderPage() {
             <h3>Annotations</h3>
             {annotations.length === 0 ? <p>No annotations yet.</p> : null}
             <ul>
-              {annotations.map((annotation) => (
+              {annotations
+                .filter((annotation) => annotation.type !== "highlight")
+                .map((annotation) => (
                 <li key={annotation.id}>
                   <p>
                     <strong>{annotation.type}</strong> ({annotation.startOffset}-{annotation.endOffset})
@@ -1399,19 +1410,6 @@ export default function ReaderPage() {
               ))}
             </ul>
             <div className="notes-table-wrap">
-              <h4>Recent Notes</h4>
-              {recentNotes.length === 0 ? <p>No notes yet.</p> : null}
-              {recentNotes.map((item) => (
-                <div key={`recent-note-${item.id}`} className="annotation-mini-item">
-                  <p>
-                    <strong>{item.noteTitle || "Untitled"}</strong>
-                  </p>
-                  <p>{item.note || "-"}</p>
-                </div>
-              ))}
-              <Link to={`/notes?bookId=${book.id}&type=note`}>View all notes</Link>
-            </div>
-            <div className="notes-table-wrap">
               <h4>Recent Highlights</h4>
               {recentHighlights.length === 0 ? <p>No highlights yet.</p> : null}
               {recentHighlights.map((item) => (
@@ -1425,7 +1423,27 @@ export default function ReaderPage() {
                   </button>
                 </div>
               ))}
-              <Link to={`/notes?bookId=${book.id}&type=highlight`}>View all highlights</Link>
+              <div className="annotation-view-all-wrap">
+                <Link
+                  className="annotation-view-all-btn"
+                  to={`/notes?bookId=${book.id}&type=highlight`}
+                >
+                  View all highlights
+                </Link>
+              </div>
+            </div>
+            <div className="notes-table-wrap">
+              <h4>Recent Notes</h4>
+              {recentNotes.length === 0 ? <p>No notes yet.</p> : null}
+              {recentNotes.map((item) => (
+                <div key={`recent-note-${item.id}`} className="annotation-mini-item">
+                  <p>
+                    <strong>{item.noteTitle || "Untitled"}</strong>
+                  </p>
+                  <p>{item.note || "-"}</p>
+                </div>
+              ))}
+              <Link to={`/notes?bookId=${book.id}&type=note`}>View all notes</Link>
             </div>
           </aside>
         </div>

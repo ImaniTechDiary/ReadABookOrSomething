@@ -1,13 +1,11 @@
 services:
   - type: web
     name: readabook-server
-    runtime: node
-    plan: free
-    region: oregon
-    rootDir: .
+    env: node
     buildCommand: npm install
     startCommand: npm run start --workspace server
     healthCheckPath: /api/health
+    autoDeploy: true
     envVars:
       - key: NODE_ENV
         value: production

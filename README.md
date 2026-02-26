@@ -1,9 +1,23 @@
-# MERN App Skeleton
+# ReadABookOrSomething
 
-MERN starter in one repo:
+MERN reading platform in one repo:
 - `client`: Vite + React (`http://localhost:5173`)
 - `server`: Node + Express + Mongoose (`http://localhost:8000`)
 - JWT auth using **httpOnly cookies** (access + refresh)
+
+## Project Summary
+
+- Full project summary (features, stack, architecture, real-world value):
+  - `PROJECT_SUMMARY.md`
+
+## Highlights
+
+- Auth: register/login/refresh/logout with secure cookie sessions
+- Discovery: public-domain book search integration (Gutendex-focused path)
+- Library: add/remove books, track reading status, continue reading
+- Reader: HTML/Text reading, chapter jump, layout modes
+- Annotation workflow: highlights + notes + quick jump-back from sidebar
+- Dashboard and Notes views with edit/delete and useful reading insights
 
 ## Setup
 
@@ -31,6 +45,26 @@ cp client/.env.example client/.env
 ```bash
 npm run dev
 ```
+
+## Environment Variables
+
+### Server (`server/.env`)
+
+- `PORT` (default `8000`)
+- `MONGODB_URI`
+- `JWT_ACCESS_SECRET`
+- `JWT_REFRESH_SECRET`
+- `CLIENT_ORIGIN`  
+  Use comma-separated origins in production when needed, for example:  
+  `https://your-app.pages.dev,https://www.yourdomain.com,http://localhost:5173`
+
+### Client (`client/.env`)
+
+- `VITE_API_BASE_URL`  
+  Recommended: `https://<your-render-service>.onrender.com/api`
+
+Note:
+- The client includes a guard that auto-appends `/api` if it is missing.
 
 ## API quick checks
 
@@ -94,3 +128,12 @@ Notes:
 3. Confirm requests go to your Render API URL.
 4. Check:
    - `GET https://<render-service>.onrender.com/api/health` -> `{ "ok": true }`
+
+## Troubleshooting
+
+- `404 /auth/login` or `404 /health` in production:
+  - `VITE_API_BASE_URL` is missing `/api` or points to wrong host.
+- Login works locally but not in production:
+  - Verify `CLIENT_ORIGIN` in Render matches your Cloudflare domain exactly.
+- Render deploy exits immediately:
+  - Check startup logs for missing env vars or MongoDB connection/auth errors.

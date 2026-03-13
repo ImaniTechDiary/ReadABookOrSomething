@@ -13,7 +13,6 @@ export default function BooksPage() {
   const [results, setResults] = useState([]);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const [usingFallback, setUsingFallback] = useState(false);
   const [libraryIds, setLibraryIds] = useState(new Set());
   const [sparkleBookIds, setSparkleBookIds] = useState(new Set());
 
@@ -69,16 +68,12 @@ export default function BooksPage() {
       });
       setPage(Number(data.page) || nextPage);
       setTotal(Number(data.total) || 0);
-      setUsingFallback(Boolean(data.usingFallback));
       setSourceStatus(data.sourceStatus || {});
-      if (data.usingFallback) {
-        setMessage("Gutendex is unavailable right now. Showing a smaller fallback catalog.");
-      }
+      setMessage(`Gutendex mode: page ${Number(data.page) || nextPage}.`);
     } catch (error) {
       setMessage(error.message);
       setResults([]);
       setTotal(0);
-      setUsingFallback(false);
       setSourceStatus(
         Object.fromEntries(
           requestedSources.map((source) => [
@@ -202,11 +197,11 @@ export default function BooksPage() {
           </button>
         </div>
       </form>
+      <p className="reader-note">Source: Gutendex only.</p>
 
       {message ? <p className="message">{message}</p> : null}
       <p>
-        Page {page} | Showing {results.length} loaded | {usingFallback ? "Fallback total" : "API total"}{" "}
-        {total}
+        Page {page} | Showing {results.length} loaded | API total {total}
       </p>
       <div className="books-page-controls">
         <label htmlFor="limit" className="books-limit-control">

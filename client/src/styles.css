@@ -281,6 +281,11 @@ pre {
   background: #ffffff;
 }
 
+.dashboard-stat-link {
+  text-decoration: none;
+  display: block;
+}
+
 .dashboard-stat:hover {
   background: #000000;
   color: #f8fafc;
@@ -615,6 +620,59 @@ pre {
 .library-search-input {
   width: min(420px, 100%);
   margin-bottom: 0;
+}
+
+.library-focus-panel,
+.library-main-section {
+  margin-top: 14px;
+  border: 1px solid #000000;
+  border-radius: 10px;
+  padding: 14px;
+  background: #ffffff;
+}
+
+.library-focus-header,
+.library-section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.library-focus-header h2,
+.library-section-header h2 {
+  margin: 0 0 6px;
+}
+
+.library-focus-header p,
+.library-section-header p {
+  margin: 0;
+}
+
+.library-focus-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 1.4px;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.library-focus-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.library-chip {
+  background: #ffffff;
+  color: #000000;
+  border: 1px solid #000000;
+}
+
+.library-chip.active {
+  background: #000000;
+  color: #ffffff;
 }
 
 .library-item {

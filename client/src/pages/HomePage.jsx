@@ -3,6 +3,13 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../lib/api";
 
+const LIBRARY_STATUS_CARDS = [
+  { title: "Total Books", key: "totalBooks", to: "/library" },
+  { title: "Currently Reading", key: "reading", to: "/library?focus=reading" },
+  { title: "To Read", key: "toRead", to: "/library?focus=to-read" },
+  { title: "Completed", key: "done", to: "/library?focus=done" }
+];
+
 const dateLabel = (value) => {
   if (!value) return "n/a";
   const date = new Date(value);
@@ -104,22 +111,14 @@ export default function HomePage() {
       {message ? <p className="message">{message}</p> : null}
 
       <div className="dashboard-grid">
-        <article className="dashboard-stat">
-          <h3>Total Books</h3>
-          <p className="dashboard-value">{totals.totalBooks}</p>
-        </article>
-        <article className="dashboard-stat">
-          <h3>Currently Reading</h3>
-          <p className="dashboard-value">{totals.reading}</p>
-        </article>
-        <article className="dashboard-stat">
-          <h3>To Read</h3>
-          <p className="dashboard-value">{totals.toRead}</p>
-        </article>
-        <article className="dashboard-stat">
-          <h3>Completed</h3>
-          <p className="dashboard-value">{totals.done}</p>
-        </article>
+        {LIBRARY_STATUS_CARDS.map((card) => (
+          <Link key={card.title} to={card.to} className="dashboard-stat dashboard-stat-link">
+            <article>
+              <h3>{card.title}</h3>
+              <p className="dashboard-value">{totals[card.key]}</p>
+            </article>
+          </Link>
+        ))}
       </div>
 
       <div className="dashboard-grid dashboard-grid-secondary">

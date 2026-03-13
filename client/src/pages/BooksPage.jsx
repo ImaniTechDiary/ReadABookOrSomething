@@ -197,7 +197,7 @@ export default function BooksPage() {
           </button>
         </div>
       </form>
-      <p className="reader-note">Source: Gutendex only.</p>
+      {/* <p className="reader-note">Source: Gutendex only.</p> */}
 
       {message ? <p className="message">{message}</p> : null}
       <p>

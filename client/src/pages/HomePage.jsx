@@ -158,9 +158,18 @@ export default function HomePage() {
 
         <article className="dashboard-panel dashboard-panel-bottom-cta">
           <h3>Annotation Activity</h3>
-          <p>Notes: {totals.notesCount}</p>
-          <p>Highlights: {totals.highlightsCount}</p>
-          <p>Stickers: {totals.stickersCount}</p>
+          <p className="dashboard-annotation-stat">
+            <span className="dashboard-annotation-label">Notes</span>
+            <span className="dashboard-annotation-count">{totals.notesCount}</span>
+          </p>
+          <p className="dashboard-annotation-stat">
+            <span className="dashboard-annotation-label">Highlights</span>
+            <span className="dashboard-annotation-count">{totals.highlightsCount}</span>
+          </p>
+          <p className="dashboard-annotation-stat">
+            <span className="dashboard-annotation-label">Stickers</span>
+            <span className="dashboard-annotation-count">{totals.stickersCount}</span>
+          </p>
           <div className="dashboard-cta-wrap">
             <Link className="dashboard-cta" to="/notes?type=all">
               View all annotations

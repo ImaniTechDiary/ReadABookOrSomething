@@ -322,6 +322,29 @@ pre {
   font-style: italic;
 }
 
+.dashboard-annotation-stat {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 10px 0;
+}
+
+.dashboard-annotation-label {
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1.8px;
+  line-height: 1;
+}
+
+.dashboard-annotation-count {
+  font-family: "Georgia", serif;
+  font-size: 22px;
+  font-weight: 700;
+}
+
 .books-search-bar {
   display: grid;
   grid-template-columns: minmax(260px, 1fr) 220px auto;

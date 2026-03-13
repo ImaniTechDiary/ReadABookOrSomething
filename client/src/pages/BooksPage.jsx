@@ -199,7 +199,7 @@ export default function BooksPage() {
       </form>
       {/* <p className="reader-note">Source: Gutendex only.</p> */}
 
-      {message ? <p className="message">{message}</p> : null}
+      {/* {message ? <p className="message">{message}</p> : null} */}
       <p>
         Page {page} | Showing {results.length} loaded | API total {total}
       </p>

@@ -20,6 +20,7 @@ router.get("/gutendex", async (req, res, next) => {
       limit,
       count: results.length,
       total,
+      usingFallback: false,
       sourceStatus: {
         gutendex: {
           ok: true,
@@ -42,6 +43,7 @@ router.get("/gutendex", async (req, res, next) => {
       limit,
       count: fallback.results.length,
       total: fallback.total,
+      usingFallback: true,
       sourceStatus: {
         gutendex: {
           ok: false,

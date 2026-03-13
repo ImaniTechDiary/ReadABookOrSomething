@@ -107,8 +107,8 @@ export const fetchGutendexPage = async ({
   query,
   page = 1,
   mimeType,
-  timeoutMs = 8000,
-  retries = 0
+  timeoutMs = 15000,
+  retries = 2
 }) => {
   const cacheKey = buildUrl({ query, page, mimeType });
   const cachedPayload = getCachedPage(cacheKey);
@@ -166,8 +166,8 @@ export const searchGutendexWindow = async (query, options = {}) => {
       query,
       page: state.nextPageToFetch,
       mimeType,
-      timeoutMs: 8000,
-      retries: 0
+      timeoutMs: 15000,
+      retries: 2
     });
     const rawItems = Array.isArray(payload.results) ? payload.results : [];
     state.total = Number(payload.count) || state.total;
